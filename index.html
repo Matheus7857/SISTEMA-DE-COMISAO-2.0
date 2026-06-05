@@ -768,14 +768,14 @@ function genId() { return Date.now().toString(36) + Math.random().toString(36).s
 async function fsSet(colecao, item) {
   if (!fdb) return;
   try { await fdb.collection(colecao).doc(item.id).set(item); }
-  catch(e) { console.error('fsSet error:', e); }
+  catch(e) { console.error('fsSet error:', e); toast('Erro ao salvar: ' + _erroFirestore(e), 'error'); }
 }
 
 // Remove um documento
 async function fsDel(colecao, id) {
   if (!fdb) return;
   try { await fdb.collection(colecao).doc(id).delete(); }
-  catch(e) { console.error('fsDel error:', e); }
+  catch(e) { console.error('fsDel error:', e); toast('Erro ao excluir: ' + _erroFirestore(e), 'error'); }
 }
 
 // Salva múltiplos documentos em lote (para importações)
@@ -790,7 +790,13 @@ async function fsBatch(colecao, itens) {
       );
       await batch.commit();
     }
-  } catch(e) { console.error('fsBatch error:', e); }
+  } catch(e) { console.error('fsBatch error:', e); toast('Erro ao importar: ' + _erroFirestore(e), 'error'); }
+}
+
+function _erroFirestore(e) {
+  if (e.code === 'permission-denied') return 'Permissão negada. Atualize as regras do Firestore.';
+  if (e.code === 'unauthenticated')   return 'Sessão expirada. Faça login novamente.';
+  return e.message || 'erro desconhecido';
 }
 
 // Mantida por compatibilidade (não faz mais nada — cada op salva diretamente)
