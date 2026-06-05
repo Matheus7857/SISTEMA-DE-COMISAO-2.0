@@ -332,6 +332,7 @@
       <div class="page-header">
         <h1>Vendas</h1>
         <p>Selecione o produto e a data — o sistema exibe os preços e comissões disponíveis</p>
+        <button class="btn btn-danger" style="margin-top:10px;" onclick="excluirTodosLancamentos()">🗑 Excluir todos os lançamentos</button>
       </div>
 
       <div class="io-card">
@@ -1671,6 +1672,43 @@ function removeVenda(id) {
     db.vendas = db.vendas.filter(x => x.id !== id);
     fsDel('vendas', id); renderVendas(); toast('Venda removida');
   });
+}
+
+function excluirTodosLancamentos() {
+  if (!db.vendas.length) return toast('Nenhum lançamento para excluir', 'error');
+
+  // Etapa 1 — pede senha
+  const overlay = document.getElementById('modal-overlay');
+  const title   = document.getElementById('modal-title');
+  const body    = document.getElementById('modal-body');
+  const btnConf = document.getElementById('modal-confirm');
+
+  title.textContent = 'Senha de confirmação';
+  body.innerHTML = `
+    <p style="margin-bottom:12px;">Digite a senha para excluir todos os ${db.vendas.length} lançamento(s):</p>
+    <input id="del-senha" type="password" placeholder="••••••••"
+      style="width:100%;padding:9px 12px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:15px;outline:none;"
+      onkeydown="if(event.key==='Enter')document.getElementById('modal-confirm').click()" />
+    <p id="del-senha-erro" style="color:#ef4444;font-size:13px;margin-top:8px;min-height:18px;"></p>`;
+  btnConf.textContent = 'Confirmar';
+  btnConf.className   = 'btn btn-danger';
+
+  overlay.classList.add('open');
+  setTimeout(() => document.getElementById('del-senha')?.focus(), 100);
+
+  btnConf.onclick = async () => {
+    const senha = document.getElementById('del-senha').value;
+    if (senha !== 'Suporte@01') {
+      document.getElementById('del-senha-erro').textContent = 'Senha incorreta.';
+      return;
+    }
+    overlay.classList.remove('open');
+    const ids = db.vendas.map(v => v.id);
+    db.vendas = [];
+    renderVendas();
+    for (const id of ids) await fsDel('vendas', id);
+    toast(`${ids.length} lançamento(s) excluído(s)`);
+  };
 }
 
 function getMarcaDoProduto(nomeProduto) {
