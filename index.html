@@ -332,7 +332,6 @@
       <div class="page-header">
         <h1>Vendas</h1>
         <p>Selecione o produto e a data — o sistema exibe os preços e comissões disponíveis</p>
-        <button class="btn btn-danger" style="margin-top:10px;" onclick="excluirTodosLancamentos()">🗑 Excluir todos os lançamentos</button>
       </div>
 
       <div class="io-card">
@@ -510,7 +509,10 @@
       </div>
 
       <div class="card">
-        <div class="card-title">Vendas Registradas</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
+          <div class="card-title" style="margin-bottom:0;">Vendas Registradas</div>
+          <button class="btn btn-danger" onclick="excluirTodosLancamentos()">🗑 Excluir todos os lançamentos</button>
+        </div>
         <div class="filter-bar">
           <div class="form-group" style="min-width:160px">
             <label>Vendedor</label>
