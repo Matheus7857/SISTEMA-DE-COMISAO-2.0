@@ -1,0 +1,2216 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vortek | Sistema de Comissão</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f0f2f5; color: #1a1a2e; min-height: 100vh; }
+  .layout { display: flex; min-height: 100vh; }
+
+  /* Sidebar */
+  .sidebar { width: 220px; background: #1a1a2e; color: #fff; padding: 24px 0; display: flex; flex-direction: column; flex-shrink: 0; position: fixed; top: 0; left: 0; height: 100vh; }
+  .sidebar-logo { padding: 20px 20px 22px; border-bottom: 1px solid rgba(255,255,255,.1); }
+  .sidebar-logo-nome { font-size: 22px; font-weight: 800; color: #7c83fd; letter-spacing: 1px; }
+  .sidebar-logo-sub  { font-size: 11px; color: rgba(255,255,255,.5); letter-spacing: .6px; text-transform: uppercase; margin-top: 2px; }
+  .nav { margin-top: 16px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 12px 20px; cursor: pointer; font-size: 14px; transition: background .15s; border-left: 3px solid transparent; }
+  .nav-item:hover { background: rgba(255,255,255,.07); }
+  .nav-item.active { background: rgba(124,131,253,.15); border-left-color: #7c83fd; color: #7c83fd; }
+  .nav-icon { font-size: 17px; width: 22px; text-align: center; }
+
+  /* Main */
+  .main { margin-left: 220px; flex: 1; padding: 32px; }
+  .page { display: none; }
+  .page.active { display: block; }
+  .page-header { margin-bottom: 28px; }
+  .page-header h1 { font-size: 22px; font-weight: 700; }
+  .page-header p { font-size: 13px; color: #6b7280; margin-top: 4px; }
+
+  /* Cards */
+  .card { background: #fff; border-radius: 12px; padding: 24px; box-shadow: 0 1px 4px rgba(0,0,0,.08); margin-bottom: 24px; }
+  .card-title { font-size: 15px; font-weight: 600; margin-bottom: 20px; color: #374151; }
+
+  /* Form */
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; align-items: end; }
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+  .form-group.wide { grid-column: span 2; }
+  .form-group label { font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: .6px; }
+  .form-group input, .form-group select { padding: 10px 12px; border: 1.5px solid #e5e7eb; border-radius: 8px; font-size: 14px; color: #1a1a2e; background: #fff; transition: border-color .15s; outline: none; width: 100%; }
+  .form-group input:focus, .form-group select:focus { border-color: #7c83fd; box-shadow: 0 0 0 3px rgba(124,131,253,.12); }
+  .form-group input[readonly] { background: #f9fafb; color: #555; cursor: default; }
+  .form-actions { display: flex; gap: 10px; align-items: center; margin-top: 18px; flex-wrap: wrap; }
+
+  /* Buttons */
+  .btn { padding: 10px 20px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity .15s, transform .1s; white-space: nowrap; }
+  .btn:hover { opacity: .87; }
+  .btn:active { transform: scale(.97); }
+  .btn-primary { background: #7c83fd; color: #fff; }
+  .btn-outline  { background: #fff; color: #374151; border: 1.5px solid #d1d5db; }
+  .btn-outline:hover { background: #f9fafb; }
+  .btn-danger   { background: #fee2e2; color: #dc2626; }
+  .btn-warning  { background: #fef3c7; color: #92400e; }
+  .btn-sm       { padding: 6px 13px; font-size: 12px; }
+
+  /* Modo edição */
+  .edit-mode-banner { background: #fef3c7; border: 1.5px solid #f59e0b; border-radius: 10px; padding: 12px 18px; margin-bottom: 18px; font-size: 14px; font-weight: 600; color: #78350f; display: none; align-items: center; gap: 10px; }
+  .edit-mode-banner.visible { display: flex; }
+  .card.editing { border: 2px solid #f59e0b; box-shadow: 0 0 0 4px rgba(245,158,11,.12); }
+
+  /* Pares preço/comissão */
+  .par-add-row { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; margin-top: 10px; }
+  .par-add-row .form-group { min-width: 140px; flex: 1; }
+  .pares-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; min-height: 36px; }
+  .par-tag { display: inline-flex; align-items: center; gap: 8px; background: #ede9fe; color: #4c1d95; border-radius: 8px; padding: 6px 12px; font-size: 13px; font-weight: 600; }
+  .par-tag-arrow { color: #7c3aed; font-weight: 400; }
+  .par-tag button { background: none; border: none; cursor: pointer; color: #7c3aed; font-size: 15px; line-height: 1; padding: 0 2px; }
+  .par-tag button:hover { color: #dc2626; }
+  .par-section-label { font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: .6px; }
+
+  /* Seletor de par na venda */
+  .par-select-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .par-opt { padding: 9px 16px; border-radius: 8px; border: 1.5px solid #d1d5db; background: #fff; font-size: 13px; font-weight: 600; cursor: pointer; color: #374151; transition: all .15s; line-height: 1.4; }
+  .par-opt:hover  { border-color: #7c83fd; color: #4338ca; background: #f5f3ff; }
+  .par-opt.active { background: #7c83fd; border-color: #7c83fd; color: #fff; }
+
+  /* IO card */
+  .io-card { background: #f8f9ff; border: 1.5px dashed #c7d2fe; border-radius: 12px; padding: 20px; margin-bottom: 24px; }
+  .io-card-title { font-size: 14px; font-weight: 700; color: #4338ca; margin-bottom: 14px; }
+  .io-row { display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
+  .io-section { display: flex; flex-direction: column; gap: 6px; }
+  .io-section-label { font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: .6px; }
+  .io-divider { width: 1px; background: #e0e7ff; align-self: stretch; margin: 0 4px; }
+  .file-label { display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; background: #fff; color: #374151; border: 1.5px solid #d1d5db; transition: background .15s; white-space: nowrap; }
+  .file-label:hover { background: #f9fafb; }
+  input[type="file"] { display: none; }
+  .import-result { margin-top: 12px; padding: 10px 14px; border-radius: 8px; font-size: 13px; display: none; }
+  .import-result.ok  { background: #d1fae5; color: #065f46; border-left: 3px solid #059669; display: block; }
+  .import-result.err { background: #fee2e2; color: #991b1b; border-left: 3px solid #dc2626; display: block; }
+
+  /* Table */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; padding: 10px 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: #6b7280; background: #f9fafb; border-bottom: 1.5px solid #e5e7eb; }
+  td { padding: 12px; border-bottom: 1px solid #f3f4f6; vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #fafafa; }
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+  .badge-green  { background: #d1fae5; color: #065f46; }
+  .badge-blue   { background: #dbeafe; color: #1e40af; }
+  .badge-purple { background: #ede9fe; color: #5b21b6; }
+  .badge-gray   { background: #f3f4f6; color: #6b7280; }
+  .empty { text-align: center; padding: 44px; color: #9ca3af; font-size: 14px; }
+
+  /* Filter bar */
+  .filter-bar { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 18px; }
+
+  /* Stats */
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .stat-card { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+  .stat-label { font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: .6px; margin-bottom: 6px; }
+  .stat-value { font-size: 26px; font-weight: 700; color: #1a1a2e; }
+  .stat-value.green  { color: #059669; }
+  .stat-value.purple { color: #7c83fd; }
+
+  /* Alert */
+  .alert { padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 14px; }
+  .alert-warn { background: #fffbeb; color: #92400e; border-left: 3px solid #f59e0b; }
+
+  /* Período box */
+  .periodo-box { display: none; margin-bottom: 16px; background: #f0fdf4; border: 1.5px solid #6ee7b7; border-radius: 10px; padding: 14px 18px; }
+  .periodo-box.visible { display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+  .periodo-box-label { font-size: 11px; font-weight: 700; color: #065f46; text-transform: uppercase; letter-spacing: .6px; margin-bottom: 2px; }
+  .periodo-box-val   { font-size: 14px; font-weight: 700; color: #047857; }
+  .periodo-item      { display: flex; flex-direction: column; }
+  .periodo-sep       { width: 1px; background: #a7f3d0; align-self: stretch; }
+  .periodo-icon      { font-size: 20px; margin-right: 4px; flex-shrink: 0; margin-top: 2px; }
+
+  /* Modal */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: center; justify-content: center; z-index: 100; opacity: 0; pointer-events: none; transition: opacity .2s; }
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
+  .modal { background: #fff; border-radius: 14px; padding: 28px; width: 100%; max-width: 420px; box-shadow: 0 20px 60px rgba(0,0,0,.2); transform: translateY(12px); transition: transform .2s; }
+  .modal-overlay.open .modal { transform: translateY(0); }
+  .modal h3 { font-size: 16px; font-weight: 700; margin-bottom: 10px; }
+  .modal p { font-size: 14px; color: #6b7280; }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 22px; }
+
+  /* Toast */
+  #toast { position: fixed; bottom: 24px; right: 24px; z-index: 200; background: #1a1a2e; color: #fff; padding: 12px 20px; border-radius: 10px; font-size: 14px; font-weight: 500; box-shadow: 0 8px 30px rgba(0,0,0,.3); transform: translateY(80px); opacity: 0; transition: transform .25s, opacity .25s; max-width: 320px; }
+  #toast.show { transform: translateY(0); opacity: 1; }
+  #toast.success::before { content: '✓  '; color: #34d399; }
+  #toast.error::before   { content: '✕  '; color: #f87171; }
+
+  .highlight-green { color: #059669; font-weight: 700; }
+  .text-muted { color: #9ca3af; font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="layout">
+
+  <nav class="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-nome">Vortek</div>
+      <div class="sidebar-logo-sub">Sistema de Comissão</div>
+    </div>
+    <div class="nav">
+      <div class="nav-item active" data-page="cadastro"><span class="nav-icon">📋</span> Cadastro</div>
+      <div class="nav-item" data-page="vendas"><span class="nav-icon">🛒</span> Vendas</div>
+      <div class="nav-item" data-page="relatorio"><span class="nav-icon">📊</span> Relatório</div>
+      <div class="nav-item" data-page="cancelamentos"><span class="nav-icon">🚫</span> Cancelamentos</div>
+      <div class="nav-item" data-page="config"><span class="nav-icon">⚙️</span> Configurações</div>
+    </div>
+  </nav>
+
+  <main class="main">
+
+    <!-- ======== CADASTRO ======== -->
+    <div class="page active" id="page-cadastro">
+      <div class="page-header">
+        <h1>Cadastro de Produtos</h1>
+        <p>Cada comissão tem seu próprio preço praticado e período de vigência</p>
+      </div>
+
+      <div class="io-card">
+        <div class="io-card-title">📥 Importar / Exportar — Cadastro</div>
+        <div class="io-row">
+          <div class="io-section">
+            <span class="io-section-label">Modelos</span>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn btn-outline" onclick="downloadModeloCadastro()">⬇ Baixar Modelo Vazio</button>
+              <button class="btn btn-outline" onclick="exportarCadastros()">⬇ Exportar Cadastros Atuais</button>
+            </div>
+          </div>
+          <div class="io-divider"></div>
+          <div class="io-section">
+            <span class="io-section-label">Importar</span>
+            <label class="file-label" for="file-cadastro">📂 Escolher arquivo .csv</label>
+            <input type="file" id="file-cadastro" accept=".csv,.txt" onchange="importarCadastro(this)" />
+          </div>
+        </div>
+        <div id="result-cadastro" class="import-result"></div>
+        <p style="font-size:12px;color:#6b7280;margin-top:10px;">
+          Colunas: <strong>Nome do Produto | Código | Pares Preço:Comissão (ex: 150,00:0,5|160,00:1,0) | Período Início (DD/MM/AAAA) | Período Fim (DD/MM/AAAA)</strong>
+        </p>
+      </div>
+
+      <div class="edit-mode-banner" id="edit-banner">
+        ✏️ Modo edição — altere os dados abaixo e clique em <strong>Salvar Alterações</strong>
+        <button class="btn btn-sm btn-outline" style="margin-left:auto" onclick="cancelarEdicao()">Cancelar</button>
+      </div>
+
+      <div class="card" id="card-form">
+        <div class="card-title" id="form-title">Novo Cadastro</div>
+        <div class="form-grid">
+          <div class="form-group wide">
+            <label>Nome do Produto <span style="color:#dc2626">*</span></label>
+            <input type="text" id="cad-nome" placeholder="Ex: Mussarela Bella" />
+          </div>
+          <div class="form-group">
+            <label>Tipo <span style="color:#dc2626">*</span></label>
+            <select id="cad-marca" onchange="atualizarFormTipo()">
+              <option value="">Selecione...</option>
+              <option value="Produto">Produto</option>
+              <option value="Marca">Marca</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Código <span class="text-muted">(opcional)</span></label>
+            <input type="text" id="cad-codigo" placeholder="Ex: SKU-001" />
+          </div>
+          <div class="form-group">
+            <label>Período — Início <span style="color:#dc2626">*</span></label>
+            <input type="date" id="cad-inicio" />
+          </div>
+          <div class="form-group">
+            <label>Período — Fim <span class="text-muted">(vazio = aberto)</span></label>
+            <input type="date" id="cad-fim" />
+          </div>
+        </div>
+
+        <!-- Pares preço / comissão (Produto) ou só comissão (Marca) -->
+        <div style="margin-top:20px;padding-top:18px;border-top:1px solid #f3f4f6;">
+          <span class="par-section-label" id="pares-label">Preços e Comissões <span style="color:#dc2626">*</span></span>
+          <div class="par-add-row">
+            <div class="form-group" id="wrap-par-preco">
+              <label>Preço Praticado (R$)</label>
+              <input type="number" id="cad-par-preco" min="0" step="0.01" placeholder="0,00"
+                onkeydown="if(event.key==='Enter'){event.preventDefault();addPar()}"
+                onfocus="this.style.borderColor='#7c83fd'" onblur="this.style.borderColor='#e5e7eb'" />
+            </div>
+            <div class="form-group">
+              <label>Comissão (%)</label>
+              <input type="number" id="cad-par-com" min="0" max="100" step="0.01" placeholder="Ex: 0,5"
+                onkeydown="if(event.key==='Enter'){event.preventDefault();addPar()}"
+                onfocus="this.style.borderColor='#7c83fd'" onblur="this.style.borderColor='#e5e7eb'" />
+            </div>
+            <button class="btn btn-outline" onclick="addPar()" style="margin-bottom:1px;" id="btn-add-par">+ Adicionar</button>
+          </div>
+          <div class="pares-list" id="cad-pares-list"></div>
+        </div>
+
+        <div class="form-actions">
+          <button class="btn btn-primary" id="btn-salvar" onclick="addCadastro()">Salvar Cadastro</button>
+          <button class="btn btn-outline" id="btn-cancelar" style="display:none" onclick="cancelarEdicao()">Cancelar</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Cadastros Registrados</div>
+        <div class="filter-bar">
+          <div class="form-group" style="min-width:180px">
+            <label>Buscar por nome</label>
+            <input type="text" id="cad-filtro-nome" placeholder="Filtrar..." oninput="renderCadastros()" />
+          </div>
+          <div class="form-group" style="min-width:160px">
+            <label>Filtrar por Tipo</label>
+            <select id="cad-filtro-marca" onchange="renderCadastros()">
+              <option value="">Todos</option>
+              <option value="Produto">Produto</option>
+              <option value="Marca">Marca</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Produto</th><th>Tipo</th><th>Código</th><th>Preço × Comissão</th><th>Início</th><th>Fim</th><th style="width:130px"></th>
+              </tr>
+            </thead>
+            <tbody id="tbody-cadastros"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======== VENDAS ======== -->
+    <div class="page" id="page-vendas">
+      <div class="page-header">
+        <h1>Vendas</h1>
+        <p>Selecione o produto e a data — o sistema exibe os preços e comissões disponíveis</p>
+      </div>
+
+      <div class="io-card">
+        <div class="io-card-title">📥 Importar / Exportar — Vendas</div>
+        <div class="io-row">
+          <div class="io-section">
+            <span class="io-section-label">Modelos</span>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn btn-outline" onclick="downloadModeloVendas()">⬇ Baixar Modelo Vazio</button>
+              <button class="btn btn-outline" onclick="exportarVendas()">⬇ Exportar Vendas Atuais</button>
+            </div>
+          </div>
+          <div class="io-divider"></div>
+          <div class="io-section">
+            <span class="io-section-label">Importar</span>
+            <label class="file-label" for="file-vendas">📂 Escolher arquivo .csv</label>
+            <input type="file" id="file-vendas" accept=".csv,.txt" onchange="importarVendas(this)" />
+          </div>
+        </div>
+        <div id="result-vendas" class="import-result"></div>
+        <p style="font-size:12px;color:#6b7280;margin-top:10px;">
+          Colunas: <strong>Vendedor | Produto | Peso (kg) | Valor Total (R$) | Dia da Venda (DD/MM/AAAA)</strong>.
+          A comissão é identificada automaticamente pelo valor praticado calculado (Total ÷ Peso).
+        </p>
+      </div>
+
+      <!-- Alternador de modo -->
+      <div style="display:flex;gap:8px;margin-bottom:20px;">
+        <button id="btn-modo-peso"  class="btn btn-primary" onclick="setModo('peso')" style="min-width:180px;">⚖️ Por Peso</button>
+        <button id="btn-modo-marca" class="btn btn-outline" onclick="setModo('marca')" style="min-width:180px;">🏷️ Por Valor Total de Marca</button>
+      </div>
+
+      <!-- MODO 1: Por Peso (existente) -->
+      <div id="card-modo-peso" class="card" id="card-modo-peso">
+        <div class="edit-mode-banner" id="venda-edit-banner">
+          ✏️ Modo edição — altere os dados e clique em <strong>Salvar Alterações</strong>
+          <button class="btn btn-sm btn-outline" style="margin-left:auto" onclick="cancelarEdicaoVenda()">Cancelar</button>
+        </div>
+        <div class="card-title" id="venda-form-title">Registrar Venda — Por Peso</div>
+        <div id="venda-alerta"></div>
+
+        <!-- Painel período vigente -->
+        <div class="periodo-box" id="periodo-box">
+          <span class="periodo-icon">✅</span>
+          <div class="periodo-item">
+            <span class="periodo-box-label">Período Vigente</span>
+            <span class="periodo-box-val" id="pb-periodo">—</span>
+          </div>
+          <div class="periodo-sep"></div>
+          <div class="periodo-item">
+            <span class="periodo-box-label">Pares disponíveis</span>
+            <span class="periodo-box-val" id="pb-pares">—</span>
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group wide">
+            <label>Produto <span style="color:#dc2626">*</span></label>
+            <select id="venda-produto" onchange="preencherVenda()"></select>
+          </div>
+          <div class="form-group">
+            <label>Vendedor <span style="color:#dc2626">*</span></label>
+            <input type="text" id="venda-vendedor" placeholder="Nome do vendedor" />
+          </div>
+          <div class="form-group">
+            <label>Data da Venda <span style="color:#dc2626">*</span></label>
+            <input type="date" id="venda-data" onchange="preencherVenda()" />
+          </div>
+          <div class="form-group">
+            <label>Peso (kg) <span style="color:#dc2626">*</span></label>
+            <input type="number" id="venda-peso" min="0" step="0.001" placeholder="0,000" oninput="calcPorPeso()" />
+          </div>
+          <div class="form-group">
+            <label>Total da Venda (R$) <span style="color:#dc2626">*</span></label>
+            <input type="number" id="venda-total" min="0" step="0.01" placeholder="0,00" oninput="calcPorTotal()" style="font-weight:600;" />
+          </div>
+          <div class="form-group">
+            <label>Valor Praticado (R$/kg) <span class="text-muted">— calculado</span></label>
+            <input type="text" id="venda-preco" readonly style="background:#f9fafb;font-weight:600;" placeholder="Total ÷ Peso" />
+          </div>
+          <div class="form-group">
+            <label>Comissão % <span class="text-muted">— automático</span></label>
+            <input type="text" id="venda-com" readonly style="background:#f9fafb;font-weight:600;" placeholder="identificado" />
+          </div>
+          <div class="form-group">
+            <label>Valor da Comissão</label>
+            <input type="text" id="venda-valor-com" readonly style="background:#f0fdf4;color:#059669;font-weight:700;font-size:15px;" />
+          </div>
+        </div>
+
+        <!-- Seletor de par -->
+        <div id="par-selector-wrap" style="display:none;margin-top:16px;">
+          <span class="par-section-label">Comissão identificada — confirme ou selecione outro par</span>
+          <div class="par-select-row" id="par-selector"></div>
+        </div>
+
+        <div class="form-actions" style="margin-top:20px;">
+          <button class="btn btn-primary" id="btn-salvar-venda" onclick="addVenda()">Registrar Venda</button>
+          <button class="btn btn-outline" id="btn-cancelar-venda" style="display:none" onclick="cancelarEdicaoVenda()">Cancelar</button>
+        </div>
+      </div>
+
+      <!-- MODO 2: Por Valor Total de Marca -->
+      <div id="card-modo-marca" class="card" style="display:none;">
+        <div class="edit-mode-banner" id="marca-edit-banner">
+          ✏️ Modo edição — altere os dados e clique em <strong>Salvar Alterações</strong>
+          <button class="btn btn-sm btn-outline" style="margin-left:auto" onclick="cancelarEdicaoVenda()">Cancelar</button>
+        </div>
+        <div class="card-title" id="marca-form-title">Registrar Venda — Por Valor Total de Marca</div>
+        <div id="marca-alerta"></div>
+
+        <!-- Painel período vigente marca -->
+        <div class="periodo-box" id="periodo-box-marca">
+          <span class="periodo-icon">✅</span>
+          <div class="periodo-item">
+            <span class="periodo-box-label">Período Vigente</span>
+            <span class="periodo-box-val" id="pb-marca-periodo">—</span>
+          </div>
+          <div class="periodo-sep"></div>
+          <div class="periodo-item">
+            <span class="periodo-box-label">Pares disponíveis</span>
+            <span class="periodo-box-val" id="pb-marca-pares">—</span>
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Filtrar por Tipo</label>
+            <select id="marca-filtro-marca" onchange="filtrarProdutosPorMarca()">
+              <option value="">Todos</option>
+              <option value="Produto">Produto</option>
+              <option value="Marca">Marca</option>
+            </select>
+          </div>
+          <div class="form-group wide">
+            <label>Produto <span style="color:#dc2626">*</span></label>
+            <select id="marca-produto" onchange="preencherMarca()"></select>
+          </div>
+          <div class="form-group">
+            <label>Vendedor <span style="color:#dc2626">*</span></label>
+            <input type="text" id="marca-vendedor" placeholder="Nome do vendedor" />
+          </div>
+          <div class="form-group">
+            <label>Período — Início <span style="color:#dc2626">*</span></label>
+            <input type="date" id="marca-inicio" onchange="preencherMarca()" />
+          </div>
+          <div class="form-group">
+            <label>Período — Fim <span style="color:#dc2626">*</span></label>
+            <input type="date" id="marca-fim" onchange="preencherMarca()" />
+          </div>
+          <div class="form-group">
+            <label>Valor Total de Vendas (R$) <span style="color:#dc2626">*</span></label>
+            <input type="number" id="marca-total" min="0" step="0.01" placeholder="0,00" oninput="calcMarca()" style="font-weight:600;" />
+          </div>
+          <div class="form-group">
+            <label>Comissão %  <span class="text-muted">— automático</span></label>
+            <input type="text" id="marca-com" readonly style="background:#f9fafb;font-weight:600;" placeholder="identificado" />
+          </div>
+          <div class="form-group">
+            <label>Valor da Comissão</label>
+            <input type="text" id="marca-valor-com" readonly style="background:#f0fdf4;color:#059669;font-weight:700;font-size:15px;" />
+          </div>
+        </div>
+
+        <!-- Seletor de par -->
+        <div id="marca-selector-wrap" style="display:none;margin-top:16px;">
+          <span class="par-section-label">Selecione a taxa de comissão <span style="color:#dc2626">*</span></span>
+          <div class="par-select-row" id="marca-selector"></div>
+        </div>
+
+        <div class="form-actions" style="margin-top:20px;">
+          <button class="btn btn-primary" id="btn-salvar-marca" onclick="addVendaMarca()">Registrar Venda</button>
+          <button class="btn btn-outline" id="btn-cancelar-marca" style="display:none" onclick="cancelarEdicaoVenda()">Cancelar</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Vendas Registradas</div>
+        <div class="filter-bar">
+          <div class="form-group" style="min-width:160px">
+            <label>Vendedor</label>
+            <input type="text" id="vf-vendedor" placeholder="Todos" oninput="renderVendas()" />
+          </div>
+          <div class="form-group" style="min-width:150px">
+            <label>Tipo</label>
+            <select id="vf-marca" onchange="renderVendas()">
+              <option value="">Todos</option>
+              <option value="Produto">Produto</option>
+              <option value="Marca">Marca</option>
+            </select>
+          </div>
+          <div class="form-group" style="min-width:200px">
+            <label>Produto</label>
+            <select id="vf-produto" onchange="renderVendas()"><option value="">Todos</option></select>
+          </div>
+          <div class="form-group">
+            <label>Data Início</label>
+            <input type="date" id="vf-inicio" onchange="renderVendas()" />
+          </div>
+          <div class="form-group">
+            <label>Data Fim</label>
+            <input type="date" id="vf-fim" onchange="renderVendas()" />
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Data</th><th>Vendedor</th><th>Produto</th><th>Peso (kg)</th><th>Preço Prat.</th><th>Total Venda</th><th>Comissão %</th><th>Valor Comissão</th><th></th></tr>
+            </thead>
+            <tbody id="tbody-vendas"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======== RELATÓRIO ======== -->
+    <div class="page" id="page-relatorio">
+      <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+        <div>
+          <h1>Relatório de Comissões</h1>
+          <p>Visão consolidada por vendedor e período</p>
+        </div>
+        <button class="btn btn-primary" onclick="gerarPDF()" style="margin-top:4px;">📄 Gerar PDF</button>
+      </div>
+      <div class="card">
+        <div class="filter-bar">
+          <div class="form-group" style="min-width:160px">
+            <label>Vendedor</label>
+            <input type="text" id="rf-vendedor" placeholder="Todos" oninput="renderRelatorio()" />
+          </div>
+          <div class="form-group" style="min-width:150px">
+            <label>Tipo</label>
+            <select id="rf-marca" onchange="renderRelatorio()">
+              <option value="">Todos</option>
+              <option value="Produto">Produto</option>
+              <option value="Marca">Marca</option>
+            </select>
+          </div>
+          <div class="form-group" style="min-width:200px">
+            <label>Produto</label>
+            <select id="rf-produto" onchange="renderRelatorio()"><option value="">Todos</option></select>
+          </div>
+          <div class="form-group">
+            <label>Data Início</label>
+            <input type="date" id="rf-inicio" onchange="renderRelatorio()" />
+          </div>
+          <div class="form-group">
+            <label>Data Fim</label>
+            <input type="date" id="rf-fim" onchange="renderRelatorio()" />
+          </div>
+        </div>
+        <div class="stats-grid" id="rel-stats"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Resumo por Vendedor</div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Vendedor</th><th>Qtd Vendas</th><th>Total Vendido</th><th>Total Comissão</th></tr></thead>
+            <tbody id="tbody-rel-vendedor"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Detalhamento</div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Data</th><th>Vendedor</th><th>Produto</th><th>Peso (kg)</th><th>Preço Prat.</th><th>Total Venda</th><th>Comissão %</th><th>Valor Comissão</th></tr></thead>
+            <tbody id="tbody-rel-detalhe"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======== CANCELAMENTOS ======== -->
+    <div class="page" id="page-cancelamentos">
+      <div class="page-header">
+        <h1>Notas Canceladas</h1>
+        <p>Registre notas canceladas — o valor será descontado da comissão no relatório</p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Registrar Nota Cancelada</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Vendedor <span style="color:#dc2626">*</span></label>
+            <input type="text" id="canc-vendedor" placeholder="Nome do vendedor" />
+          </div>
+          <div class="form-group">
+            <label>Tipo</label>
+            <select id="canc-tipo" onchange="renderSelectCancProduto()">
+              <option value="Produto">Produto</option>
+              <option value="Marca">Marca</option>
+            </select>
+          </div>
+          <div class="form-group wide">
+            <label>Produto / Marca <span style="color:#dc2626">*</span></label>
+            <select id="canc-produto"></select>
+          </div>
+          <div class="form-group">
+            <label>Data da Nota <span style="color:#dc2626">*</span></label>
+            <input type="date" id="canc-data" />
+          </div>
+          <div class="form-group">
+            <label>Valor da Nota (R$) <span style="color:#dc2626">*</span></label>
+            <input type="number" id="canc-valor" min="0" step="0.01" placeholder="0,00" />
+          </div>
+          <div class="form-group">
+            <label>Observação <span class="text-muted">(opcional)</span></label>
+            <input type="text" id="canc-obs" placeholder="Ex: NF 12345" />
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary" onclick="addCancelamento()">Registrar</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Notas Canceladas Registradas</div>
+        <div class="filter-bar">
+          <div class="form-group" style="min-width:160px">
+            <label>Vendedor</label>
+            <input type="text" id="cf-vendedor" placeholder="Todos" oninput="renderCancelamentos()" />
+          </div>
+          <div class="form-group">
+            <label>Data Início</label>
+            <input type="date" id="cf-inicio" onchange="renderCancelamentos()" />
+          </div>
+          <div class="form-group">
+            <label>Data Fim</label>
+            <input type="date" id="cf-fim" onchange="renderCancelamentos()" />
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Data</th><th>Vendedor</th><th>Produto / Marca</th><th>Tipo</th><th>Valor</th><th>Observação</th><th></th></tr>
+            </thead>
+            <tbody id="tbody-cancelamentos"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======== CONFIGURAÇÕES ======== -->
+    <div class="page" id="page-config">
+      <div class="page-header">
+        <h1>Configurações</h1>
+        <p>Parâmetros do sistema de cálculo de comissão</p>
+      </div>
+
+      <div class="card" style="max-width:520px;">
+        <div class="card-title">Tolerância de Preço</div>
+        <p style="font-size:14px;color:#6b7280;margin-bottom:20px;line-height:1.6;">
+          Valor máximo que o preço praticado calculado pode ficar <strong>abaixo</strong> de um par cadastrado
+          para ainda ser considerado dentro daquela faixa de comissão.<br><br>
+          <strong>Exemplo:</strong> com tolerância de R$ 0,10 — se o par cadastrado é R$ 40,49 e o
+          preço calculado deu R$ 40,39 (10 centavos abaixo), usa a comissão de R$ 40,49.
+          Se deu R$ 40,38 (11 centavos abaixo), cai para o par anterior.
+        </p>
+        <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;">
+          <div class="form-group" style="max-width:200px;">
+            <label>Valor permitido abaixo (R$)</label>
+            <input type="number" id="cfg-tolerancia" min="0" max="10" step="0.01" placeholder="0,10"
+              style="font-size:16px;font-weight:700;" />
+          </div>
+          <button class="btn btn-primary" onclick="salvarConfig()">Salvar</button>
+        </div>
+        <p id="cfg-info" style="font-size:13px;color:#059669;margin-top:14px;font-weight:600;display:none;"></p>
+      </div>
+
+      <div class="card" style="max-width:520px;margin-top:24px;">
+        <div class="card-title">Recuperar Dados do Navegador</div>
+        <p style="font-size:14px;color:#6b7280;margin-bottom:20px;line-height:1.6;">
+          Se você tinha dados salvos localmente no navegador antes da integração com o Firebase,
+          clique abaixo para localizá-los e enviá-los para o banco de dados.
+        </p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="btn btn-outline" onclick="verificarDadosLocais()">Verificar dados locais</button>
+          <button class="btn btn-outline" onclick="diagnosticarLocalStorage()">Diagnóstico completo</button>
+          <button class="btn btn-primary" id="btn-migrar" style="display:none;" onclick="migrarDadosLocais()">Importar para o Firebase</button>
+        </div>
+        <div id="migrar-info" style="margin-top:16px;font-size:13px;line-height:1.8;font-family:monospace;"></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Loading Overlay -->
+<div id="loading-overlay" style="position:fixed;inset:0;background:#1a1a2e;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;">
+  <div style="font-size:28px;font-weight:800;color:#7c83fd;letter-spacing:1px;">Vortek</div>
+  <div style="width:48px;height:48px;border:4px solid rgba(124,131,253,.2);border-top-color:#7c83fd;border-radius:50%;animation:spin .8s linear infinite;"></div>
+  <div id="loading-msg" style="font-size:13px;color:rgba(255,255,255,.5);">Conectando ao banco de dados...</div>
+  <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <h3 id="modal-title">Confirmar exclusão</h3>
+    <p id="modal-body"></p>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-danger" id="modal-confirm">Excluir</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ============================================================
+// FIREBASE CONFIG
+// ============================================================
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBb5fZIY8WEjlJwCC7tzSSIH49mS3hROHE",
+  authDomain: "sistema-comissao-bf33e.firebaseapp.com",
+  projectId: "sistema-comissao-bf33e",
+  storageBucket: "sistema-comissao-bf33e.firebasestorage.app",
+  messagingSenderId: "679030863396",
+  appId: "1:679030863396:web:3dbb86bb0d6393eb040ab1",
+  measurementId: "G-CQVVS80EC9"
+};
+
+// ============================================================
+// STORAGE — Firebase Firestore
+// ============================================================
+let db  = { cadastros: [], vendas: [], cancelamentos: [] };
+let fdb = null; // instância Firestore
+
+function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+
+// Salva / atualiza um documento
+async function fsSet(colecao, item) {
+  if (!fdb) return;
+  try { await fdb.collection(colecao).doc(item.id).set(item); }
+  catch(e) { console.error('fsSet error:', e); }
+}
+
+// Remove um documento
+async function fsDel(colecao, id) {
+  if (!fdb) return;
+  try { await fdb.collection(colecao).doc(id).delete(); }
+  catch(e) { console.error('fsDel error:', e); }
+}
+
+// Salva múltiplos documentos em lote (para importações)
+async function fsBatch(colecao, itens) {
+  if (!fdb || !itens.length) return;
+  try {
+    const CHUNK = 450; // Firestore batch limit = 500
+    for (let i = 0; i < itens.length; i += CHUNK) {
+      const batch = fdb.batch();
+      itens.slice(i, i + CHUNK).forEach(item =>
+        batch.set(fdb.collection(colecao).doc(item.id), item)
+      );
+      await batch.commit();
+    }
+  } catch(e) { console.error('fsBatch error:', e); }
+}
+
+// Mantida por compatibilidade (não faz mais nada — cada op salva diretamente)
+function save() {}
+
+// ============================================================
+// FORMATAÇÃO
+// ============================================================
+function fmt(n)     { return Number(n).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function fmt3(n)    { return Number(n).toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 }); }
+function fmtDate(d) { if (!d) return '—'; const [y,m,day] = d.split('-'); return `${day}/${m}/${y}`; }
+function today()    { return new Date().toISOString().slice(0,10); }
+
+function parseDate(str) {
+  if (!str || !str.trim()) return '';
+  const s = str.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!m) return null;
+  return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+}
+
+function parseNum(str) {
+  if (!str && str !== 0) return NaN;
+  const s = String(str).trim().replace(/\./g,'').replace(',','.');
+  return parseFloat(s);
+}
+
+// ============================================================
+// TOAST
+// ============================================================
+function toast(msg, type = 'success') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show ' + type;
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.className = ''; }, 3500);
+}
+
+// ============================================================
+// NAV
+// ============================================================
+document.querySelectorAll('.nav-item').forEach(el => {
+  el.addEventListener('click', () => {
+    document.querySelectorAll('.nav-item').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(x => x.classList.remove('active'));
+    el.classList.add('active');
+    const pg = el.dataset.page;
+    document.getElementById('page-' + pg).classList.add('active');
+    if (pg === 'cadastro')  renderCadastros();
+    if (pg === 'vendas')    { preencherSelectProdutos(); preencherSelectMarca(); renderVendas(); }
+    if (pg === 'relatorio') { preencherSelectProdutos(); renderRelatorio(); }
+    if (pg === 'config')         carregarConfig();
+    if (pg === 'cancelamentos') { renderSelectCancProduto(); document.getElementById('canc-data').value = today(); renderCancelamentos(); }
+  });
+});
+
+// ============================================================
+// HELPERS
+// ============================================================
+function produtosUnicos() {
+  return [...new Set(db.cadastros.map(c => c.nome))].sort();
+}
+
+function getCadastroNaData(nome, dataStr) {
+  return db.cadastros.find(c =>
+    c.nome === nome && c.inicio <= dataStr && (!c.fim || c.fim >= dataStr)
+  );
+}
+
+// retorna pares [{preco?, comissao}]
+// Marca: preco ausente. Produto: preco presente.
+function getPares(cad) {
+  if (Array.isArray(cad.pares) && cad.pares.length) return cad.pares;
+  // migração de dados antigos
+  const preco = cad.preco ?? 0;
+  const coms  = Array.isArray(cad.comissoes) ? cad.comissoes : (cad.comissao != null ? [cad.comissao] : []);
+  return coms.map(c => ({ preco, comissao: c }));
+}
+
+function isMarcaTipo(cad) {
+  return cad?.marca === 'Marca';
+}
+
+function preencherSelectProdutos() {
+  const nomes = produtosUnicos();
+  [['venda-produto',false],['vf-produto',true],['rf-produto',true]].forEach(([id, isFilter]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const curr = el.value;
+    el.innerHTML = isFilter ? '<option value="">Todos</option>' : '<option value="">Selecione...</option>';
+    nomes.forEach(n => {
+      const opt = document.createElement('option');
+      opt.value = n; opt.textContent = n; el.appendChild(opt);
+    });
+    if (curr) el.value = curr;
+  });
+}
+
+// ============================================================
+// CADASTRO — TIPO (Produto / Marca)
+// ============================================================
+function isTipoMarca() {
+  return document.getElementById('cad-marca')?.value === 'Marca';
+}
+
+// clearPares=true: chamada pelo usuário ao trocar o tipo (limpa pares)
+// clearPares=false: chamada programaticamente para ajustar só o layout
+function atualizarFormTipo(clearPares = true) {
+  const isMarca = isTipoMarca();
+  document.getElementById('wrap-par-preco').style.display = isMarca ? 'none' : 'flex';
+  document.getElementById('pares-label').innerHTML = isMarca
+    ? 'Taxas de Comissão (%) <span style="color:#dc2626">*</span> <span class="text-muted" style="text-transform:none;letter-spacing:0">— adicione uma ou mais taxas</span>'
+    : 'Preços e Comissões <span style="color:#dc2626">*</span> <span class="text-muted" style="text-transform:none;letter-spacing:0">— adicione um par por vez</span>';
+  if (clearPares) { _cadPares = []; }
+  renderParesForm();
+}
+
+// ============================================================
+// CADASTRO — PARES / TAXAS
+// ============================================================
+let _cadPares = [];
+
+function addPar() {
+  const isMarca = isTipoMarca();
+  const com     = parseFloat(document.getElementById('cad-par-com').value);
+  if (isNaN(com) || com < 0 || com > 100) return toast('Comissão deve ser entre 0 e 100', 'error');
+
+  if (isMarca) {
+    if (_cadPares.find(p => p.comissao === com)) return toast('Taxa já adicionada', 'error');
+    _cadPares.push({ comissao: com });
+    _cadPares.sort((a,b) => a.comissao - b.comissao);
+  } else {
+    const preco = parseFloat(document.getElementById('cad-par-preco').value);
+    if (isNaN(preco) || preco < 0) return toast('Informe um preço válido', 'error');
+    if (_cadPares.find(p => p.preco === preco && p.comissao === com)) return toast('Par já adicionado', 'error');
+    _cadPares.push({ preco, comissao: com });
+    _cadPares.sort((a,b) => a.preco - b.preco || a.comissao - b.comissao);
+    document.getElementById('cad-par-preco').value = '';
+  }
+  document.getElementById('cad-par-com').value = '';
+  document.getElementById('cad-par-com').focus();
+  renderParesForm();
+}
+
+function removePar(idx) {
+  _cadPares.splice(idx, 1);
+  renderParesForm();
+}
+
+function renderParesForm() {
+  const isMarca = isTipoMarca();
+  document.getElementById('cad-pares-list').innerHTML = _cadPares.map((p,i) =>
+    isMarca
+      ? `<span class="par-tag">${fmt(p.comissao)}% comissão<button onclick="removePar(${i})" title="Remover">×</button></span>`
+      : `<span class="par-tag">R$ ${fmt(p.preco)} <span class="par-tag-arrow">→</span> ${fmt(p.comissao)}%<button onclick="removePar(${i})" title="Remover">×</button></span>`
+  ).join('');
+}
+
+// ============================================================
+// CADASTRO — CRUD
+// ============================================================
+let _editId = null; // id do cadastro sendo editado
+
+function addCadastro() {
+  const nome   = document.getElementById('cad-nome').value.trim();
+  const marca  = document.getElementById('cad-marca').value.trim();
+  const codigo = document.getElementById('cad-codigo').value.trim();
+  const inicio = document.getElementById('cad-inicio').value;
+  const fim    = document.getElementById('cad-fim').value;
+
+  if (!nome)               return toast('Informe o nome do produto', 'error');
+  if (!marca)              return toast('Informe o tipo (Produto ou Marca)', 'error');
+
+  // se o usuário digitou valores nos campos mas não clicou em "+ Adicionar", adiciona automaticamente
+  const comPendente   = parseFloat(document.getElementById('cad-par-com').value);
+  const precoPendente = parseFloat(document.getElementById('cad-par-preco').value);
+  if (!isNaN(comPendente) && comPendente >= 0 && comPendente <= 100) {
+    if (isTipoMarca() || (!isNaN(precoPendente) && precoPendente >= 0)) {
+      addPar(); // tenta adicionar o par pendente antes de salvar
+    }
+  }
+
+  if (!_cadPares.length)   return toast(
+    isTipoMarca() ? 'Adicione ao menos uma taxa de comissão' : 'Adicione ao menos um par Preço → Comissão',
+    'error'
+  );
+  if (!inicio)             return toast('Informe a data de início do período', 'error');
+  if (fim && fim < inicio) return toast('Data fim deve ser após a data início', 'error');
+
+  if (_editId) {
+    const idx = db.cadastros.findIndex(x => x.id === _editId);
+    const item = { id: _editId, nome, marca, codigo, pares: [..._cadPares], inicio, fim };
+    if (idx !== -1) db.cadastros[idx] = item;
+    fsSet('cadastros', item);
+    toast('Cadastro atualizado');
+  } else {
+    const item = { id: genId(), nome, marca, codigo, pares: [..._cadPares], inicio, fim };
+    db.cadastros.push(item);
+    fsSet('cadastros', item);
+    toast('Cadastro salvo');
+  }
+
+  limparFormCadastro();
+  preencherSelectProdutos();
+  renderCadastros();
+}
+
+function editarCadastro(id) {
+  const c = db.cadastros.find(x => x.id === id);
+  if (!c) return;
+  _editId = id;
+
+  document.getElementById('cad-nome').value   = c.nome;
+  document.getElementById('cad-marca').value  = c.marca || '';
+  document.getElementById('cad-codigo').value = c.codigo || '';
+  document.getElementById('cad-inicio').value = c.inicio;
+  document.getElementById('cad-fim').value    = c.fim || '';
+  atualizarFormTipo(false); // ajusta layout sem limpar pares
+  _cadPares = [...getPares(c)];  // carrega pares depois do layout ajustado
+  renderParesForm();
+
+  document.getElementById('form-title').textContent      = 'Editar Cadastro';
+  document.getElementById('btn-salvar').textContent      = 'Salvar Alterações';
+  document.getElementById('btn-cancelar').style.display  = 'inline-flex';
+  document.getElementById('edit-banner').classList.add('visible');
+  document.getElementById('card-form').classList.add('editing');
+  document.getElementById('card-form').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function cancelarEdicao() {
+  _editId = null;
+  limparFormCadastro();
+}
+
+function limparFormCadastro() {
+  ['cad-nome','cad-marca','cad-codigo','cad-inicio','cad-fim','cad-par-preco','cad-par-com'].forEach(id => document.getElementById(id).value = '');
+  _cadPares = [];
+  _editId   = null;
+  renderParesForm();
+  document.getElementById('form-title').textContent     = 'Novo Cadastro';
+  document.getElementById('btn-salvar').textContent     = 'Salvar Cadastro';
+  document.getElementById('btn-cancelar').style.display = 'none';
+  document.getElementById('edit-banner').classList.remove('visible');
+  document.getElementById('card-form').classList.remove('editing');
+}
+
+function removeCadastro(id) {
+  confirm2('Excluir este cadastro?', 'Será removido permanentemente.', () => {
+    db.cadastros = db.cadastros.filter(x => x.id !== id);
+    if (_editId === id) limparFormCadastro();
+    fsDel('cadastros', id); renderCadastros(); toast('Cadastro removido');
+  });
+}
+
+function renderCadastros() {
+  const filtroNome  = (document.getElementById('cad-filtro-nome')?.value  || '').toLowerCase();
+  const filtroMarca = document.getElementById('cad-filtro-marca')?.value  || '';
+  const tbody  = document.getElementById('tbody-cadastros');
+  let rows = db.cadastros;
+  if (filtroNome)  rows = rows.filter(c => c.nome.toLowerCase().includes(filtroNome));
+  if (filtroMarca) rows = rows.filter(c => c.marca === filtroMarca);
+  rows = [...rows].sort((a,b) => (a.marca||'').localeCompare(b.marca||'') || a.nome.localeCompare(b.nome));
+  if (!rows.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty">Nenhum cadastro encontrado</td></tr>'; return; }
+  tbody.innerHTML = rows.map(c => {
+    const pares = getPares(c);
+    const tags  = isMarcaTipo(c)
+      ? pares.map(p => `<span class="par-tag" style="font-size:12px;padding:3px 10px;">${fmt(p.comissao)}%</span>`).join(' ')
+      : pares.map(p => `<span class="par-tag" style="font-size:12px;padding:3px 10px;">R$ ${fmt(p.preco)} → ${fmt(p.comissao)}%</span>`).join(' ');
+    return `<tr>
+      <td><strong>${c.nome}</strong></td>
+      <td>${c.marca ? `<span class="badge badge-blue">${c.marca}</span>` : '<span style="color:#9ca3af">—</span>'}</td>
+      <td>${c.codigo ? `<span class="badge badge-gray">${c.codigo}</span>` : '<span style="color:#9ca3af">—</span>'}</td>
+      <td>${tags}</td>
+      <td>${fmtDate(c.inicio)}</td>
+      <td>${c.fim ? fmtDate(c.fim) : '<span class="badge badge-blue">Aberto</span>'}</td>
+      <td style="display:flex;gap:6px;">
+        <button class="btn btn-warning btn-sm" onclick="editarCadastro('${c.id}')">Editar</button>
+        <button class="btn btn-danger btn-sm" onclick="removeCadastro('${c.id}')">Excluir</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ============================================================
+// VENDAS
+// ============================================================
+let _cadAtual = null;
+let _parSel   = null; // { preco, comissao }
+
+function preencherVenda() {
+  const nome   = document.getElementById('venda-produto').value;
+  const dataV  = document.getElementById('venda-data').value;
+  const alerta = document.getElementById('venda-alerta');
+  const box    = document.getElementById('periodo-box');
+
+  alerta.innerHTML = '';
+  box.classList.remove('visible');
+  ['venda-preco','venda-com','venda-total','venda-valor-com'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('par-selector-wrap').style.display = 'none';
+  document.getElementById('par-selector').innerHTML = '';
+  _cadAtual = null; _parSel = null;
+
+  if (!nome || !dataV) return;
+  const cad = getCadastroNaData(nome, dataV);
+  if (!cad) {
+    alerta.innerHTML = `<div class="alert alert-warn">⚠️ Nenhum cadastro vigente para <strong>${nome}</strong> nesta data.</div>`;
+    return;
+  }
+  _cadAtual = cad;
+  const pares  = getPares(cad);
+  const fimStr = cad.fim ? fmtDate(cad.fim) : 'em aberto';
+
+  document.getElementById('pb-periodo').textContent = `${fmtDate(cad.inicio)} até ${fimStr}`;
+  document.getElementById('pb-pares').textContent   = pares.map(p => `R$ ${fmt(p.preco)} → ${fmt(p.comissao)}%`).join('  |  ');
+  box.classList.add('visible');
+
+  const row = document.getElementById('par-selector');
+  row.innerHTML = pares.map((p, i) =>
+    `<button class="par-opt" onclick="selecionarPar(${i}, this)">
+      R$ ${fmt(p.preco)}<br><small style="font-weight:400">${fmt(p.comissao)}% comissão</small>
+    </button>`
+  ).join('');
+  document.getElementById('par-selector-wrap').style.display = 'block';
+
+  if (pares.length === 1) selecionarPar(0, row.querySelector('.par-opt'));
+}
+
+function selecionarPar(idx, btn) {
+  _parSel = getPares(_cadAtual)[idx];
+  document.querySelectorAll('.par-opt').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('venda-preco').value = 'R$ ' + fmt(_parSel.preco);
+  document.getElementById('venda-com').value   = fmt(_parSel.comissao) + '%';
+  // recalcula total e comissão com o novo par
+  const peso = parseFloat(document.getElementById('venda-peso').value) || 0;
+  if (peso > 0) {
+    const total = peso * _parSel.preco;
+    document.getElementById('venda-total').value     = total.toFixed(2).replace('.', ',');
+    document.getElementById('venda-valor-com').value = 'R$ ' + fmt(total * (_parSel.comissao / 100));
+  }
+}
+
+// Usuário digitou o PESO → calcula total se tiver par selecionado
+function calcPorPeso() {
+  const peso  = parseFloat(document.getElementById('venda-peso').value) || 0;
+  const total = parseFloat(document.getElementById('venda-total').value) || 0;
+  if (total > 0 && peso > 0) {
+    // total já foi digitado: recalcula preço e comissão
+    _aplicarPrecoPorTotal(peso, total);
+  } else if (_parSel && peso > 0) {
+    // par já selecionado: calcula total
+    const t = peso * _parSel.preco;
+    document.getElementById('venda-total').value     = t.toFixed(2).replace('.', ',');
+    document.getElementById('venda-valor-com').value = 'R$ ' + fmt(t * (_parSel.comissao / 100));
+  }
+}
+
+// Usuário digitou o TOTAL → calcula valor praticado e identifica a comissão
+function calcPorTotal() {
+  const peso  = parseFloat(document.getElementById('venda-peso').value) || 0;
+  const total = parseFloat(document.getElementById('venda-total').value) || 0;
+  if (peso <= 0 || total <= 0) return;
+  _aplicarPrecoPorTotal(peso, total);
+}
+
+// ============================================================
+// CONFIGURAÇÕES
+// ============================================================
+const CFG_KEY = 'comissao_config';
+let cfg = JSON.parse(localStorage.getItem(CFG_KEY) || '{"tolerancia":0.06}');
+
+function salvarConfig() {
+  const val = parseFloat(document.getElementById('cfg-tolerancia').value);
+  if (isNaN(val) || val < 0) return toast('Informe um valor válido', 'error');
+  cfg.tolerancia = val;
+  localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
+  const info = document.getElementById('cfg-info');
+  info.textContent = `✓ Tolerância salva: R$ ${fmt(val)}`;
+  info.style.display = 'block';
+  toast('Configuração salva');
+}
+
+function carregarConfig() {
+  const input = document.getElementById('cfg-tolerancia');
+  if (input) input.value = cfg.tolerancia;
+}
+
+// ============================================================
+// MIGRAÇÃO DE DADOS LOCAIS → FIREBASE
+// ============================================================
+let _dadosMigracao = null;
+
+function verificarDadosLocais() {
+  const info  = document.getElementById('migrar-info');
+  const btnMigrar = document.getElementById('btn-migrar');
+  _dadosMigracao = { cadastros: [], vendas: [], cancelamentos: [] };
+
+  // Varre todas as chaves do localStorage em busca de dados conhecidos
+  for (let i = 0; i < localStorage.length; i++) {
+    const chave = localStorage.key(i);
+    if (chave === CFG_KEY) continue;
+    let val;
+    try { val = JSON.parse(localStorage.getItem(chave)); } catch { continue; }
+
+    // db completo: { cadastros:[], vendas:[], cancelamentos:[] }
+    if (val && typeof val === 'object' && !Array.isArray(val)) {
+      if (Array.isArray(val.cadastros))    _dadosMigracao.cadastros    = [..._dadosMigracao.cadastros,    ...val.cadastros];
+      if (Array.isArray(val.vendas))       _dadosMigracao.vendas       = [..._dadosMigracao.vendas,       ...val.vendas];
+      if (Array.isArray(val.cancelamentos))_dadosMigracao.cancelamentos= [..._dadosMigracao.cancelamentos,...val.cancelamentos];
+    }
+    // array avulso
+    if (Array.isArray(val) && val.length && val[0] && typeof val[0] === 'object') {
+      const amostra = val[0];
+      if ('nome' in amostra && 'pares' in amostra)        _dadosMigracao.cadastros    = [..._dadosMigracao.cadastros,    ...val];
+      else if ('produto' in amostra && 'vendedor' in amostra) _dadosMigracao.vendas   = [..._dadosMigracao.vendas,       ...val];
+      else if ('vendedor' in amostra && 'tipo' in amostra)    _dadosMigracao.cancelamentos = [..._dadosMigracao.cancelamentos, ...val];
+    }
+  }
+
+  // Remove duplicatas pelo id
+  ['cadastros','vendas','cancelamentos'].forEach(c => {
+    const seen = new Set();
+    _dadosMigracao[c] = _dadosMigracao[c].filter(x => x.id && !seen.has(x.id) && seen.add(x.id));
+  });
+
+  const tot = _dadosMigracao.cadastros.length + _dadosMigracao.vendas.length + _dadosMigracao.cancelamentos.length;
+  if (tot === 0) {
+    info.innerHTML = '<span style="color:#ef4444;">Nenhum dado encontrado no navegador.</span>';
+    btnMigrar.style.display = 'none';
+  } else {
+    info.innerHTML =
+      `<strong>Encontrado no navegador:</strong><br>` +
+      `• ${_dadosMigracao.cadastros.length} cadastro(s)<br>` +
+      `• ${_dadosMigracao.vendas.length} venda(s) / lançamento(s)<br>` +
+      `• ${_dadosMigracao.cancelamentos.length} cancelamento(s)<br><br>` +
+      `<span style="color:#f59e0b;">Clique em "Importar para o Firebase" para enviar esses dados.</span>`;
+    btnMigrar.style.display = '';
+  }
+}
+
+async function migrarDadosLocais() {
+  if (!_dadosMigracao) return;
+  const info = document.getElementById('migrar-info');
+  const btnMigrar = document.getElementById('btn-migrar');
+  btnMigrar.disabled = true;
+  btnMigrar.textContent = 'Importando…';
+  try {
+    await fsBatch('cadastros',    _dadosMigracao.cadastros);
+    await fsBatch('vendas',       _dadosMigracao.vendas);
+    await fsBatch('cancelamentos',_dadosMigracao.cancelamentos);
+    info.innerHTML = '<span style="color:#059669;font-weight:700;">✓ Dados importados com sucesso para o Firebase!</span>';
+    btnMigrar.style.display = 'none';
+    toast('Dados migrados com sucesso!');
+  } catch(e) {
+    info.innerHTML = `<span style="color:#ef4444;">Erro ao importar: ${e.message}</span>`;
+    btnMigrar.disabled = false;
+    btnMigrar.textContent = 'Importar para o Firebase';
+  }
+}
+
+function diagnosticarLocalStorage() {
+  const info = document.getElementById('migrar-info');
+  let html = '<strong>Todas as chaves encontradas no localStorage:</strong><br><br>';
+  if (localStorage.length === 0) {
+    info.innerHTML = '<span style="color:#ef4444;">localStorage está vazio.</span>';
+    return;
+  }
+  for (let i = 0; i < localStorage.length; i++) {
+    const chave = localStorage.key(i);
+    const raw   = localStorage.getItem(chave);
+    let val;
+    try { val = JSON.parse(raw); } catch { val = raw; }
+
+    if (Array.isArray(val)) {
+      const campos = val.length ? Object.keys(val[0] || {}).join(', ') : '(vazio)';
+      html += `<b style="color:#7c83fd;">${chave}</b>: array com <b>${val.length}</b> item(s)<br>`;
+      html += `&nbsp;&nbsp;campos: <span style="color:#6b7280;">${campos}</span><br>`;
+      if (val.length) {
+        html += `&nbsp;&nbsp;1º item: <span style="color:#374151;">${JSON.stringify(val[0]).slice(0,120)}…</span><br>`;
+      }
+    } else if (val && typeof val === 'object') {
+      html += `<b style="color:#7c83fd;">${chave}</b>: objeto com chaves <span style="color:#6b7280;">${Object.keys(val).join(', ')}</span><br>`;
+      Object.entries(val).forEach(([k,v]) => {
+        if (Array.isArray(v)) html += `&nbsp;&nbsp;${k}: array com <b>${v.length}</b> item(s)<br>`;
+      });
+    } else {
+      html += `<b style="color:#7c83fd;">${chave}</b>: ${String(raw).slice(0,80)}<br>`;
+    }
+    html += '<br>';
+  }
+  info.innerHTML = html;
+}
+
+// ============================================================
+// IDENTIFICAÇÃO DO PAR
+// ============================================================
+// Usa o maior par cadastrado cujo preço seja ≤ ao preço calculado.
+// Se o preço calculado estiver até [tolerância configurável] abaixo de um par,
+// esse par também é elegível.
+// Arredonda para centavos para evitar problema de ponto flutuante.
+function encontrarPar(pares, precoCalculado) {
+  const TOL      = cfg.tolerancia ?? 0.10;
+  const precoArred = Math.round(precoCalculado * 100) / 100;
+
+  // pares com preço ≤ calculado + tolerância
+  const elegíveis = pares.filter(p => {
+    const diff = Math.round((p.preco - precoArred) * 100) / 100;
+    return diff <= TOL; // abaixo do calculado OU acima mas dentro da tolerância
+  });
+
+  if (elegíveis.length > 0) {
+    // maior par elegível (o mais alto que o preço calculado atingiu)
+    return elegíveis.reduce((best, p) => p.preco > best.preco ? p : best, elegíveis[0]);
+  }
+
+  // calculado abaixo de todos os pares (mesmo com tolerância): usa o menor
+  return pares.reduce((best, p) => p.preco < best.preco ? p : best, pares[0]);
+}
+
+function _aplicarPrecoPorTotal(peso, total) {
+  if (!_cadAtual) return;
+  const precoPorKg = total / peso;
+  document.getElementById('venda-preco').value = 'R$ ' + fmt(precoPorKg);
+
+  const pares  = getPares(_cadAtual);
+  const melhor = encontrarPar(pares, precoPorKg);
+  _parSel = melhor;
+
+  // destaca o botão correspondente
+  const btns = document.querySelectorAll('.par-opt');
+  btns.forEach((b, i) => {
+    b.classList.toggle('active', pares[i] === melhor);
+  });
+
+  document.getElementById('venda-com').value       = fmt(melhor.comissao) + '%';
+  document.getElementById('venda-valor-com').value  = 'R$ ' + fmt(total * (melhor.comissao / 100));
+}
+
+// mantida para compatibilidade interna
+function calcVenda() { calcPorPeso(); }
+
+// ============================================================
+// MODO: POR VALOR TOTAL DE MARCA
+// ============================================================
+let _cadMarca = null;
+let _parMarca = null;
+
+function setModo(modo) {
+  const isPeso  = modo === 'peso';
+  document.getElementById('card-modo-peso').style.display  = isPeso  ? 'block' : 'none';
+  document.getElementById('card-modo-marca').style.display = !isPeso ? 'block' : 'none';
+  document.getElementById('btn-modo-peso').className  = isPeso  ? 'btn btn-primary' : 'btn btn-outline';
+  document.getElementById('btn-modo-marca').className = !isPeso ? 'btn btn-primary' : 'btn btn-outline';
+  if (!isPeso) {
+    preencherSelectMarca();
+    document.getElementById('marca-inicio').value = today();
+    document.getElementById('marca-fim').value    = today();
+  }
+}
+
+function preencherSelectMarca() {
+  preencherSelectProdutos(); // já preenche marca-filtro-marca
+  filtrarProdutosPorMarca();
+}
+
+function filtrarProdutosPorMarca() {
+  const marca = document.getElementById('marca-filtro-marca')?.value || '';
+  const sel   = document.getElementById('marca-produto');
+  const curr  = sel.value;
+  sel.innerHTML = '<option value="">Selecione...</option>';
+  let cads = db.cadastros;
+  if (marca) cads = cads.filter(c => c.marca === marca);
+  const nomes = [...new Set(cads.map(c => c.nome))].sort();
+  nomes.forEach(n => {
+    const opt = document.createElement('option');
+    opt.value = n; opt.textContent = n; sel.appendChild(opt);
+  });
+  if (curr && nomes.includes(curr)) sel.value = curr;
+  preencherMarca();
+}
+
+function preencherMarca() {
+  const nome   = document.getElementById('marca-produto').value;
+  const dataV  = document.getElementById('marca-inicio').value; // usa início para buscar cadastro vigente
+  const alerta = document.getElementById('marca-alerta');
+  const box    = document.getElementById('periodo-box-marca');
+
+  alerta.innerHTML = '';
+  box.classList.remove('visible');
+  document.getElementById('marca-com').value      = '';
+  document.getElementById('marca-valor-com').value = '';
+  document.getElementById('marca-selector-wrap').style.display = 'none';
+  document.getElementById('marca-selector').innerHTML = '';
+  _cadMarca = null; _parMarca = null;
+
+  if (!nome || !dataV) return;
+  const cad = getCadastroNaData(nome, dataV);
+  if (!cad) {
+    alerta.innerHTML = `<div class="alert alert-warn">⚠️ Nenhum cadastro vigente para <strong>${nome}</strong> nesta data.</div>`;
+    return;
+  }
+  _cadMarca = cad;
+  const pares  = getPares(cad);
+  const fimStr = cad.fim ? fmtDate(cad.fim) : 'em aberto';
+  document.getElementById('pb-marca-periodo').textContent = `${fmtDate(cad.inicio)} até ${fimStr}`;
+  document.getElementById('pb-marca-pares').textContent   = pares.map(p => `${fmt(p.comissao)}%`).join('  |  ');
+  box.classList.add('visible');
+
+  const row = document.getElementById('marca-selector');
+  row.innerHTML = pares.map((p, i) =>
+    `<button class="par-opt" onclick="selecionarParMarca(${i}, this)">
+      ${fmt(p.comissao)}% comissão
+    </button>`
+  ).join('');
+  document.getElementById('marca-selector-wrap').style.display = 'block';
+
+  if (pares.length === 1) selecionarParMarca(0, row.querySelector('.par-opt'));
+}
+
+function selecionarParMarca(idx, btn) {
+  _parMarca = getPares(_cadMarca)[idx];
+  document.querySelectorAll('#marca-selector .par-opt').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('marca-com').value = fmt(_parMarca.comissao) + '%';
+  calcMarca();
+}
+
+function calcMarca() {
+  if (!_parMarca) return;
+  const total  = parseFloat(document.getElementById('marca-total').value) || 0;
+  const comVal = total * (_parMarca.comissao / 100);
+  document.getElementById('marca-valor-com').value = total > 0 ? 'R$ ' + fmt(comVal) : '';
+}
+
+function addVendaMarca() {
+  const produto  = document.getElementById('marca-produto').value;
+  const vendedor = document.getElementById('marca-vendedor').value.trim();
+  const inicio   = document.getElementById('marca-inicio').value;
+  const fim      = document.getElementById('marca-fim').value;
+  const total    = parseFloat(document.getElementById('marca-total').value);
+
+  if (!produto)               return toast('Selecione um produto / marca', 'error');
+  if (!vendedor)              return toast('Informe o nome do vendedor', 'error');
+  if (!inicio)                return toast('Informe o período de início', 'error');
+  if (!fim)                   return toast('Informe o período de fim', 'error');
+  if (fim < inicio)           return toast('Data fim deve ser após o início', 'error');
+  if (isNaN(total)||total<=0) return toast('Informe o valor total de vendas', 'error');
+  if (!_cadMarca)             return toast('Nenhum cadastro vigente para este produto nesta data', 'error');
+  if (!_parMarca)             return toast('Selecione a taxa de comissão', 'error');
+
+  const com           = _parMarca.comissao;
+  const valorComissao = total * (com / 100);
+  // usa inicio como data de referência para filtros; armazena também o fim
+  const registro      = { produto, vendedor, data: inicio, dataFim: fim, peso: null, preco: null, com, totalVenda: total, valorComissao, tipo: 'marca' };
+
+  if (_vendaEditId) {
+    const idx = db.vendas.findIndex(x => x.id === _vendaEditId);
+    if (idx !== -1) db.vendas[idx] = { ...db.vendas[idx], ...registro };
+    toast('Venda atualizada');
+  } else {
+    db.vendas.push({ id: genId(), ...registro });
+    toast('Venda registrada');
+  }
+  save();
+
+  _limparFormMarca();
+  renderVendas();
+}
+
+// ---- estado de edição de venda ----
+let _vendaEditId = null;
+
+function _limparFormVenda() {
+  ['venda-peso','venda-total','venda-preco','venda-com','venda-valor-com'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('venda-alerta').innerHTML = '';
+  document.getElementById('periodo-box').classList.remove('visible');
+  document.getElementById('par-selector-wrap').style.display = 'none';
+  document.getElementById('par-selector').innerHTML = '';
+  _cadAtual = null; _parSel = null;
+  _vendaEditId = null;
+  document.getElementById('venda-edit-banner').classList.remove('visible');
+  document.getElementById('venda-form-title').textContent = 'Registrar Venda — Por Peso';
+  document.getElementById('btn-salvar-venda').textContent = 'Registrar Venda';
+  document.getElementById('btn-cancelar-venda').style.display = 'none';
+  document.getElementById('card-modo-peso').classList.remove('editing');
+}
+
+function _limparFormMarca() {
+  ['marca-total','marca-com','marca-valor-com','marca-inicio','marca-fim'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('marca-alerta').innerHTML = '';
+  document.getElementById('periodo-box-marca').classList.remove('visible');
+  document.getElementById('marca-selector-wrap').style.display = 'none';
+  document.getElementById('marca-selector').innerHTML = '';
+  _cadMarca = null; _parMarca = null;
+  _vendaEditId = null;
+  document.getElementById('marca-edit-banner').classList.remove('visible');
+  document.getElementById('marca-form-title').textContent = 'Registrar Venda — Por Valor Total de Marca';
+  document.getElementById('btn-salvar-marca').textContent = 'Registrar Venda';
+  document.getElementById('btn-cancelar-marca').style.display = 'none';
+  document.getElementById('card-modo-marca').classList.remove('editing');
+}
+
+function cancelarEdicaoVenda() {
+  _limparFormVenda();
+  _limparFormMarca();
+}
+
+function editarVenda(id) {
+  const v = db.vendas.find(x => x.id === id);
+  if (!v) return;
+  _vendaEditId = id;
+
+  if (v.tipo === 'marca') {
+    // — Modo Por Valor Total de Marca —
+    setModo('marca');
+    preencherSelectMarca();
+    document.getElementById('marca-inicio').value  = v.data    || '';
+    document.getElementById('marca-fim').value     = v.dataFim || '';
+    document.getElementById('marca-vendedor').value = v.vendedor;
+    document.getElementById('marca-filtro-marca').value = '';
+    filtrarProdutosPorMarca();
+    document.getElementById('marca-produto').value = v.produto;
+    preencherMarca();
+    // aguarda micro-task para o DOM atualizar e selecionar o par
+    setTimeout(() => {
+      const btns = document.querySelectorAll('#marca-selector .par-opt');
+      btns.forEach(btn => {
+        if (btn.textContent.includes(fmt(v.com) + '%')) {
+          selecionarParMarca(Array.from(btns).indexOf(btn), btn);
+        }
+      });
+      document.getElementById('marca-total').value = v.totalVenda;
+      calcMarca();
+      // UI edição
+      document.getElementById('marca-edit-banner').classList.add('visible');
+      document.getElementById('marca-form-title').textContent = 'Editar Venda — Por Valor Total de Marca';
+      document.getElementById('btn-salvar-marca').textContent = 'Salvar Alterações';
+      document.getElementById('btn-cancelar-marca').style.display = 'inline-flex';
+      document.getElementById('card-modo-marca').classList.add('editing');
+      document.getElementById('card-modo-marca').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
+
+  } else {
+    // — Modo Por Peso —
+    setModo('peso');
+    document.getElementById('venda-produto').value  = v.produto;
+    document.getElementById('venda-vendedor').value = v.vendedor;
+    document.getElementById('venda-data').value     = v.data;
+    preencherVenda();
+    setTimeout(() => {
+      document.getElementById('venda-peso').value  = v.peso ?? '';
+      document.getElementById('venda-total').value = v.totalVenda ?? '';
+      // seleciona o par da comissão salva
+      const btns = document.querySelectorAll('#par-selector .par-opt');
+      btns.forEach((btn, i) => {
+        const pares = _cadAtual ? getPares(_cadAtual) : [];
+        if (pares[i] && pares[i].comissao === v.com) {
+          selecionarPar(i, btn);
+        }
+      });
+      if (v.totalVenda && v.peso) calcPorTotal();
+      // UI edição
+      document.getElementById('venda-edit-banner').classList.add('visible');
+      document.getElementById('venda-form-title').textContent = 'Editar Venda — Por Peso';
+      document.getElementById('btn-salvar-venda').textContent = 'Salvar Alterações';
+      document.getElementById('btn-cancelar-venda').style.display = 'inline-flex';
+      document.getElementById('card-modo-peso').classList.add('editing');
+      document.getElementById('card-modo-peso').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
+  }
+}
+
+function addVenda() {
+  const produto  = document.getElementById('venda-produto').value;
+  const vendedor = document.getElementById('venda-vendedor').value.trim();
+  const dataV    = document.getElementById('venda-data').value;
+  const peso     = parseFloat(document.getElementById('venda-peso').value);
+  const totalDigitado = parseFloat(document.getElementById('venda-total').value);
+
+  if (!produto)                        return toast('Selecione um produto', 'error');
+  if (!vendedor)                       return toast('Informe o nome do vendedor', 'error');
+  if (!dataV)                          return toast('Informe a data da venda', 'error');
+  if (isNaN(peso) || peso <= 0)        return toast('Informe o peso do produto', 'error');
+  if (isNaN(totalDigitado) || totalDigitado <= 0) return toast('Informe o valor total da venda', 'error');
+  if (!_cadAtual)                      return toast('Nenhum cadastro vigente para este produto nesta data', 'error');
+  if (!_parSel)                        return toast('Não foi possível identificar a comissão — selecione um par', 'error');
+
+  const preco         = totalDigitado / peso;
+  const com           = _parSel.comissao;
+  const totalVenda    = totalDigitado;
+  const valorComissao = totalVenda * (com / 100);
+  const registro      = { produto, vendedor, data: dataV, peso, preco, com, totalVenda, valorComissao };
+
+  if (_vendaEditId) {
+    const idx = db.vendas.findIndex(x => x.id === _vendaEditId);
+    if (idx !== -1) db.vendas[idx] = { ...db.vendas[idx], ...registro };
+    toast('Venda atualizada');
+  } else {
+    db.vendas.push({ id: genId(), ...registro });
+    toast('Venda registrada');
+  }
+
+  save();
+  _limparFormVenda();
+  renderVendas();
+}
+
+function removeVenda(id) {
+  confirm2('Excluir esta venda?', '', () => {
+    db.vendas = db.vendas.filter(x => x.id !== id);
+    save(); renderVendas(); toast('Venda removida');
+  });
+}
+
+function getMarcaDoProduto(nomeProduto) {
+  const cad = db.cadastros.find(c => c.nome === nomeProduto);
+  return cad?.marca || '';
+}
+
+function renderVendas() {
+  const fV = (document.getElementById('vf-vendedor')?.value || '').toLowerCase();
+  const fM = document.getElementById('vf-marca')?.value  || '';
+  const fP = document.getElementById('vf-produto')?.value || '';
+  const fI = document.getElementById('vf-inicio')?.value || '';
+  const fF = document.getElementById('vf-fim')?.value || '';
+  const tbody = document.getElementById('tbody-vendas');
+  let rows = db.vendas;
+  if (fV) rows = rows.filter(x => x.vendedor.toLowerCase().includes(fV));
+  if (fM) rows = rows.filter(x => getMarcaDoProduto(x.produto) === fM);
+  if (fP) rows = rows.filter(x => x.produto === fP);
+  if (fI) rows = rows.filter(x => x.data >= fI);
+  if (fF) rows = rows.filter(x => x.data <= fF);
+  rows = [...rows].sort((a,b) => b.data.localeCompare(a.data));
+  if (!rows.length) { tbody.innerHTML = '<tr><td colspan="9" class="empty">Nenhuma venda registrada</td></tr>'; return; }
+  tbody.innerHTML = rows.map(r => `
+    <tr>
+      <td>${r.tipo==='marca' ? fmtDate(r.data)+' a '+fmtDate(r.dataFim||r.data) : fmtDate(r.data)}</td>
+      <td><strong>${r.vendedor}</strong></td>
+      <td>${r.produto}${r.tipo==='marca' ? ' <span class="badge badge-blue">marca</span>' : ''}</td>
+      <td>${r.tipo==='marca' ? '<span style="color:#9ca3af">—</span>' : fmt3(r.peso ?? 0) + ' kg'}</td>
+      <td>${r.tipo==='marca' ? '<span style="color:#9ca3af">—</span>' : 'R$ ' + fmt(r.preco ?? 0)}</td>
+      <td>R$ ${fmt(r.totalVenda ?? 0)}</td>
+      <td><span class="badge badge-purple">${fmt(r.com)}%</span></td>
+      <td class="highlight-green">R$ ${fmt(r.valorComissao)}</td>
+      <td style="display:flex;gap:6px;white-space:nowrap;">
+        <button class="btn btn-warning btn-sm" onclick="editarVenda('${r.id}')">Editar</button>
+        <button class="btn btn-danger btn-sm" onclick="removeVenda('${r.id}')">Excluir</button>
+      </td>
+    </tr>`).join('');
+}
+
+// ============================================================
+// RELATÓRIO
+// ============================================================
+function renderRelatorio() {
+  const fV = (document.getElementById('rf-vendedor')?.value || '').toLowerCase();
+  const fM = document.getElementById('rf-marca')?.value || '';
+  const fP = document.getElementById('rf-produto')?.value || '';
+  const fI = document.getElementById('rf-inicio')?.value || '';
+  const fF = document.getElementById('rf-fim')?.value || '';
+  let rows = db.vendas;
+  if (fV) rows = rows.filter(x => x.vendedor.toLowerCase().includes(fV));
+  if (fM) rows = rows.filter(x => getMarcaDoProduto(x.produto) === fM);
+  if (fP) rows = rows.filter(x => x.produto === fP);
+  if (fI) rows = rows.filter(x => x.data >= fI);
+  if (fF) rows = rows.filter(x => x.data <= fF);
+
+  const totVenda  = rows.reduce((s,r) => s + (r.totalVenda ?? 0), 0);
+  const totCom    = rows.reduce((s,r) => s + r.valorComissao, 0);
+  const totCanc   = totalCancelamentos(fV, fM, fP, fI, fF);
+  const totLiq    = totCom - totCanc;
+
+  document.getElementById('rel-stats').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Total de Vendas</div><div class="stat-value">${rows.length}</div></div>
+    <div class="stat-card"><div class="stat-label">Total Vendido</div><div class="stat-value">R$ ${fmt(totVenda)}</div></div>
+    <div class="stat-card"><div class="stat-label">Total Comissão</div><div class="stat-value green">R$ ${fmt(totCom)}</div></div>
+    <div class="stat-card"><div class="stat-label">Notas Canceladas</div><div class="stat-value" style="color:#dc2626">R$ ${fmt(totCanc)}</div></div>
+    <div class="stat-card"><div class="stat-label">Comissão Líquida</div><div class="stat-value purple">R$ ${fmt(totLiq)}</div></div>`;
+
+  // cabeçalho da tabela de resumo atualizado
+  document.getElementById('tbody-rel-vendedor').closest('table').querySelector('thead tr').innerHTML =
+    '<th>Vendedor</th><th>Qtd Vendas</th><th>Total Vendido</th><th>Total Comissão</th><th style="color:#dc2626">Notas Canceladas</th><th>Comissão Líquida</th>';
+
+  const map = {};
+  rows.forEach(r => {
+    if (!map[r.vendedor]) map[r.vendedor] = { qtd: 0, tv: 0, tc: 0 };
+    map[r.vendedor].qtd++; map[r.vendedor].tv += (r.totalVenda ?? 0); map[r.vendedor].tc += r.valorComissao;
+  });
+  const tbV = document.getElementById('tbody-rel-vendedor');
+  const ents = Object.entries(map).sort((a,b) => b[1].tc - a[1].tc);
+  tbV.innerHTML = ents.length
+    ? ents.map(([n,v]) => {
+        const canc = totalCancelamentosPorVendedor(n, fI, fF);
+        const liq  = v.tc - canc;
+        return `<tr>
+          <td><strong>${n}</strong></td><td>${v.qtd}</td>
+          <td>R$ ${fmt(v.tv)}</td>
+          <td class="highlight-green">R$ ${fmt(v.tc)}</td>
+          <td style="color:#dc2626;font-weight:700;">R$ ${fmt(canc)}</td>
+          <td style="color:#7c83fd;font-weight:700;">R$ ${fmt(liq)}</td>
+        </tr>`;
+      }).join('')
+    : '<tr><td colspan="6" class="empty">Nenhuma venda no período</td></tr>';
+
+  const tbD = document.getElementById('tbody-rel-detalhe');
+  const sorted = [...rows].sort((a,b) => b.data.localeCompare(a.data));
+  tbD.innerHTML = sorted.length
+    ? sorted.map(r => `<tr>
+        <td>${r.tipo==='marca' ? fmtDate(r.data)+' a '+fmtDate(r.dataFim||r.data) : fmtDate(r.data)}</td>
+        <td>${r.vendedor}</td><td>${r.produto}${r.tipo==='marca'?' <span class="badge badge-blue" style="font-size:10px">marca</span>':''}</td>
+        <td>${r.tipo==='marca' ? '<span style="color:#9ca3af">—</span>' : fmt3(r.peso ?? 0)+' kg'}</td>
+        <td>${r.tipo==='marca' ? '<span style="color:#9ca3af">—</span>' : 'R$ '+fmt(r.preco??0)}</td>
+        <td>R$ ${fmt(r.totalVenda ?? 0)}</td>
+        <td><span class="badge badge-purple">${fmt(r.com)}%</span></td>
+        <td class="highlight-green">R$ ${fmt(r.valorComissao)}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="8" class="empty">Nenhuma venda</td></tr>';
+}
+
+// ============================================================
+// CSV UTILS
+// ============================================================
+function detectSep(text) { const l = text.split('\n')[0]||''; return l.includes(';') ? ';' : ','; }
+
+function parseCSV(text) {
+  const sep = detectSep(text);
+  const lines = text.replace(/\r/g,'').split('\n').filter(l => l.trim());
+  return lines.map(line => {
+    const cells = []; let cur = '', inq = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') { inq = !inq; }
+      else if (ch === sep && !inq) { cells.push(cur.trim()); cur = ''; }
+      else { cur += ch; }
+    }
+    cells.push(cur.trim());
+    return cells;
+  });
+}
+
+function downloadCSV(filename, rows) {
+  const bom  = '﻿';
+  const text = bom + rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(';')).join('\r\n');
+  const blob = new Blob([text], { type: 'text/csv;charset=utf-8' });
+  const a    = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = filename; a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function showResult(id, type, msg) {
+  const el = document.getElementById(id);
+  el.className = 'import-result ' + type;
+  el.textContent = msg;
+}
+
+// ============================================================
+// IMPORT / EXPORT — CADASTRO
+// ============================================================
+function downloadModeloCadastro() {
+  downloadCSV('modelo_cadastro.csv', [
+    ['Nome do Produto','Código do Produto','Pares Preço:Comissão (separados por |)','Período Início (DD/MM/AAAA)','Período Fim (DD/MM/AAAA)'],
+  ]);
+  toast('Modelo de cadastro baixado');
+}
+
+function exportarCadastros() {
+  if (!db.cadastros.length) return toast('Nenhum cadastro para exportar', 'error');
+  const rows = [['Nome do Produto','Código do Produto','Pares Preço:Comissão (separados por |)','Período Início (DD/MM/AAAA)','Período Fim (DD/MM/AAAA)']];
+  [...db.cadastros].sort((a,b) => a.nome.localeCompare(b.nome)).forEach(c => {
+    const paresStr = getPares(c).map(p => `${String(p.preco).replace('.',',')}:${String(p.comissao).replace('.',',')}`).join('|');
+    rows.push([c.nome, c.codigo||'', paresStr, fmtDate(c.inicio), c.fim ? fmtDate(c.fim) : '']);
+  });
+  downloadCSV('cadastros_' + today() + '.csv', rows);
+  toast(`${db.cadastros.length} cadastro(s) exportado(s)`);
+}
+
+function importarCadastro(input) {
+  const file = input.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const rows = parseCSV(e.target.result);
+      if (rows.length < 2) { showResult('result-cadastro','err','Arquivo vazio ou sem dados.'); return; }
+      let ok = 0, erros = [];
+      for (let i = 1; i < rows.length; i++) {
+        const r    = rows[i];
+        const nome = (r[0]||'').trim(), cod = (r[1]||'').trim();
+        // pares: "150,00:0,5|160,00:1,0"
+        const paresStr = (r[2]||'').split('|').map(s => {
+          const [pr, cm] = s.split(':');
+          return { preco: parseNum(pr), comissao: parseNum(cm) };
+        }).filter(p => !isNaN(p.preco) && !isNaN(p.comissao) && p.preco >= 0 && p.comissao >= 0 && p.comissao <= 100);
+        const ini = parseDate(r[3]), fim = parseDate(r[4]);
+        if (!nome)           { erros.push(`Linha ${i+1}: nome em branco`); continue; }
+        if (!paresStr.length){ erros.push(`Linha ${i+1}: pares inválidos "${r[2]}"`); continue; }
+        if (!ini)            { erros.push(`Linha ${i+1}: data início inválida "${r[3]}"`); continue; }
+        if (fim === null)    { erros.push(`Linha ${i+1}: data fim inválida "${r[4]}"`); continue; }
+        db.cadastros.push({ id: genId(), nome, codigo: cod, pares: paresStr.sort((a,b)=>a.preco-b.preco), inicio: ini, fim: fim||'' });
+        ok++;
+      }
+      save(); renderCadastros();
+      let msg = `${ok} cadastro(s) importado(s).`;
+      if (erros.length) msg += ` ${erros.length} ignorado(s): ${erros.slice(0,2).join(' | ')}`;
+      showResult('result-cadastro', ok===0?'err':'ok', msg);
+      if (ok>0) toast(`${ok} cadastro(s) importado(s)`);
+    } catch(ex) { showResult('result-cadastro','err','Erro: '+ex.message); }
+    input.value = '';
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+// ============================================================
+// IMPORT / EXPORT — VENDAS
+// ============================================================
+function downloadModeloVendas() {
+  downloadCSV('modelo_vendas.csv', [
+    ['Vendedor','Produto','Peso (kg)','Valor Total (R$)','Dia da Venda (DD/MM/AAAA)'],
+  ]);
+  toast('Modelo de vendas baixado');
+}
+
+function exportarVendas() {
+  if (!db.vendas.length) return toast('Nenhuma venda para exportar', 'error');
+  const rows = [['Vendedor','Produto','Peso (kg)','Preço Praticado (R$)','Dia da Venda','Comissão (%)','Valor Comissão (R$)','Total Venda (R$)']];
+  [...db.vendas].sort((a,b) => b.data.localeCompare(a.data)).forEach(v => rows.push([
+    v.vendedor, v.produto,
+    String((v.peso??0).toFixed(3)).replace('.',','),
+    String((v.preco??0).toFixed(2)).replace('.',','),
+    fmtDate(v.data),
+    String((v.com??0).toFixed(2)).replace('.',','),
+    String((v.valorComissao??0).toFixed(2)).replace('.',','),
+    String((v.totalVenda??0).toFixed(2)).replace('.',','),
+  ]));
+  downloadCSV('vendas_' + today() + '.csv', rows);
+  toast(`${db.vendas.length} venda(s) exportada(s)`);
+}
+
+function importarVendas(input) {
+  const file = input.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const rows = parseCSV(e.target.result);
+      if (rows.length < 2) { showResult('result-vendas','err','Arquivo vazio ou sem dados.'); return; }
+      let ok = 0, erros = [];
+      for (let i = 1; i < rows.length; i++) {
+        const r        = rows[i];
+        const vendedor   = (r[0]||'').trim();
+        const produto    = (r[1]||'').trim();
+        const peso       = parseNum(r[2]);
+        const totalVenda = parseNum(r[3]);   // coluna: Valor Total
+        const dataStr    = parseDate(r[4]);
+
+        if (!vendedor)                    { erros.push(`Linha ${i+1}: vendedor em branco`); continue; }
+        if (!produto)                     { erros.push(`Linha ${i+1}: produto em branco`); continue; }
+        if (isNaN(peso)       || peso<=0) { erros.push(`Linha ${i+1}: peso inválido "${r[2]}"`); continue; }
+        if (isNaN(totalVenda) || totalVenda<=0) { erros.push(`Linha ${i+1}: valor total inválido "${r[3]}"`); continue; }
+        if (!dataStr)                     { erros.push(`Linha ${i+1}: data inválida "${r[4]}"`); continue; }
+
+        const cad = getCadastroNaData(produto, dataStr);
+        if (!cad) { erros.push(`Linha ${i+1}: cadastro não encontrado para "${produto}" em ${r[4]}`); continue; }
+
+        // calcula valor praticado e identifica a comissão pelo par
+        const precoPorKg = totalVenda / peso;
+        const pares      = getPares(cad);
+        const par        = encontrarPar(pares, precoPorKg);
+
+        const preco         = precoPorKg;
+        const com           = par.comissao;
+        const valorComissao = totalVenda * (com / 100);
+        db.vendas.push({ id: genId(), produto, vendedor, data: dataStr, peso, preco, com, totalVenda, valorComissao });
+        ok++;
+      }
+      save(); renderVendas();
+      let msg = `${ok} venda(s) importada(s).`;
+      if (erros.length) msg += ` ${erros.length} ignorada(s): ${erros.slice(0,2).join(' | ')}`;
+      showResult('result-vendas', ok===0?'err':'ok', msg);
+      if (ok>0) toast(`${ok} venda(s) importada(s)`);
+    } catch(ex) { showResult('result-vendas','err','Erro: '+ex.message); }
+    input.value = '';
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+// ============================================================
+// MODAL
+// ============================================================
+let _cb = null;
+function confirm2(title, body, cb) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-body').textContent  = body;
+  _cb = cb;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); _cb = null; }
+document.getElementById('modal-confirm').onclick = () => { if (_cb) _cb(); closeModal(); };
+document.getElementById('modal-overlay').addEventListener('click', e => { if (e.target===e.currentTarget) closeModal(); });
+
+// ============================================================
+// CANCELAMENTOS
+// ============================================================
+function renderSelectCancProduto() {
+  const tipo = document.getElementById('canc-tipo')?.value || '';
+  const sel  = document.getElementById('canc-produto');
+  const curr = sel.value;
+  sel.innerHTML = '<option value="">Selecione...</option>';
+  const nomes = [...new Set(
+    db.cadastros.filter(c => !tipo || c.marca === tipo).map(c => c.nome)
+  )].sort();
+  nomes.forEach(n => {
+    const opt = document.createElement('option');
+    opt.value = n; opt.textContent = n; sel.appendChild(opt);
+  });
+  if (curr) sel.value = curr;
+}
+
+function addCancelamento() {
+  const vendedor = document.getElementById('canc-vendedor').value.trim();
+  const tipo     = document.getElementById('canc-tipo').value;
+  const produto  = document.getElementById('canc-produto').value;
+  const data     = document.getElementById('canc-data').value;
+  const valor    = parseFloat(document.getElementById('canc-valor').value);
+  const obs      = document.getElementById('canc-obs').value.trim();
+
+  if (!vendedor)              return toast('Informe o vendedor', 'error');
+  if (!produto)               return toast('Selecione o produto / marca', 'error');
+  if (!data)                  return toast('Informe a data', 'error');
+  if (isNaN(valor)||valor<=0) return toast('Informe o valor da nota', 'error');
+
+  db.cancelamentos.push({ id: genId(), vendedor, tipo, produto, data, valor, obs });
+  save();
+  ['canc-vendedor','canc-valor','canc-obs'].forEach(id => document.getElementById(id).value = '');
+  renderCancelamentos();
+  toast('Nota cancelada registrada');
+}
+
+function removeCancelamento(id) {
+  confirm2('Excluir este cancelamento?', '', () => {
+    db.cancelamentos = db.cancelamentos.filter(x => x.id !== id);
+    save(); renderCancelamentos(); toast('Cancelamento removido');
+  });
+}
+
+function renderCancelamentos() {
+  const fV = (document.getElementById('cf-vendedor')?.value || '').toLowerCase();
+  const fI  = document.getElementById('cf-inicio')?.value || '';
+  const fF  = document.getElementById('cf-fim')?.value   || '';
+  const tbody = document.getElementById('tbody-cancelamentos');
+  let rows = db.cancelamentos;
+  if (fV) rows = rows.filter(x => x.vendedor.toLowerCase().includes(fV));
+  if (fI) rows = rows.filter(x => x.data >= fI);
+  if (fF) rows = rows.filter(x => x.data <= fF);
+  rows = [...rows].sort((a,b) => b.data.localeCompare(a.data));
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">Nenhum cancelamento registrado</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(r => `
+    <tr>
+      <td>${fmtDate(r.data)}</td>
+      <td><strong>${r.vendedor}</strong></td>
+      <td>${r.produto}</td>
+      <td><span class="badge ${r.tipo==='Marca'?'badge-blue':'badge-gray'}">${r.tipo||'—'}</span></td>
+      <td style="color:#dc2626;font-weight:700;">R$ ${fmt(r.valor)}</td>
+      <td>${r.obs||'—'}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="removeCancelamento('${r.id}')">Excluir</button></td>
+    </tr>`).join('');
+}
+
+// total de cancelamentos filtrado por vendedor e período
+function totalCancelamentos(fV, fM, fP, fI, fF) {
+  let rows = db.cancelamentos;
+  if (fV) rows = rows.filter(x => x.vendedor.toLowerCase().includes(fV.toLowerCase()));
+  if (fP) rows = rows.filter(x => x.produto === fP);
+  if (fI) rows = rows.filter(x => x.data >= fI);
+  if (fF) rows = rows.filter(x => x.data <= fF);
+  return rows.reduce((s,r) => s + r.valor, 0);
+}
+
+function totalCancelamentosPorVendedor(vendedor, fI, fF) {
+  let rows = db.cancelamentos.filter(x => x.vendedor === vendedor);
+  if (fI) rows = rows.filter(x => x.data >= fI);
+  if (fF) rows = rows.filter(x => x.data <= fF);
+  return rows.reduce((s,r) => s + r.valor, 0);
+}
+
+// ============================================================
+// INIT
+// ============================================================
+document.getElementById('venda-data').value = today();
+renderCadastros();
+carregarConfig();
+
+// ============================================================
+// GERAR PDF
+// ============================================================
+function gerarPDF() {
+  if (typeof window.jspdf === 'undefined') {
+    toast('Biblioteca PDF ainda carregando, tente novamente em instantes', 'error');
+    return;
+  }
+  const { jsPDF } = window.jspdf;
+
+  // coleta filtros ativos
+  const fV = (document.getElementById('rf-vendedor')?.value || '').toLowerCase();
+  const fP  = document.getElementById('rf-produto')?.value  || '';
+  const fI  = document.getElementById('rf-inicio')?.value   || '';
+  const fF  = document.getElementById('rf-fim')?.value      || '';
+
+  let rows = db.vendas;
+  if (fV) rows = rows.filter(x => x.vendedor.toLowerCase().includes(fV));
+  if (fP) rows = rows.filter(x => x.produto === fP);
+  if (fI) rows = rows.filter(x => x.data >= fI);
+  if (fF) rows = rows.filter(x => x.data <= fF);
+  rows = [...rows].sort((a,b) => b.data.localeCompare(a.data));
+
+  const totVenda = rows.reduce((s,r) => s + (r.totalVenda ?? 0), 0);
+  const totCom   = rows.reduce((s,r) => s + r.valorComissao, 0);
+  const totCanc  = totalCancelamentos(fV, '', fP, fI, fF);
+  const totLiq   = totCom - totCanc;
+
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const W   = doc.internal.pageSize.getWidth();
+  const cor  = [44, 62, 80];      // azul escuro
+  const corV = [5, 150, 105];     // verde
+
+  // ── cabeçalho ──────────────────────────────────────────────
+  doc.setFillColor(...cor);
+  doc.rect(0, 0, W, 22, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(16);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Vortek — Relatório de Comissões', 14, 14);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })}`, W - 14, 14, { align: 'right' });
+
+  let y = 30;
+
+  // ── filtros aplicados ───────────────────────────────────────
+  const filtros = [];
+  if (fV) filtros.push(`Vendedor: ${fV}`);
+  if (fP) filtros.push(`Produto: ${fP}`);
+  if (fI) filtros.push(`De: ${fmtDate(fI)}`);
+  if (fF) filtros.push(`Até: ${fmtDate(fF)}`);
+  if (filtros.length) {
+    doc.setTextColor(100, 100, 120);
+    doc.setFontSize(9);
+    doc.text('Filtros: ' + filtros.join('  |  '), 14, y);
+    y += 8;
+  }
+
+  // ── cards de totais ─────────────────────────────────────────
+  const cards = [
+    { label: 'Total de Vendas',      valor: String(rows.length),   cor: [124,131,253] },
+    { label: 'Total Vendido',        valor: 'R$ ' + fmt(totVenda), cor: [44, 62, 80]  },
+    { label: 'Total Comissão',       valor: 'R$ ' + fmt(totCom),   cor: [5, 150, 105] },
+    { label: 'Notas Canceladas',     valor: 'R$ ' + fmt(totCanc),  cor: [220, 38, 38] },
+    { label: 'Comissão Líquida',     valor: 'R$ ' + fmt(totLiq),   cor: [124,131,253] },
+  ];
+  const cw = (W - 28 - 12) / 5;
+  cards.forEach((c, i) => {
+    const x = 14 + i * (cw + 3);
+    doc.setFillColor(245, 247, 250);
+    doc.roundedRect(x, y, cw, 18, 2, 2, 'F');
+    doc.setDrawColor(...c.cor);
+    doc.setLineWidth(0.8);
+    doc.line(x, y, x, y + 18);
+    doc.setTextColor(120, 120, 140);
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'bold');
+    doc.text(c.label.toUpperCase(), x + 4, y + 6);
+    doc.setTextColor(...c.cor);
+    doc.setFontSize(12);
+    doc.text(c.valor, x + 4, y + 14);
+  });
+  y += 26;
+
+  // ── tabela 1: resumo por vendedor ───────────────────────────
+  const map = {};
+  rows.forEach(r => {
+    if (!map[r.vendedor]) map[r.vendedor] = { qtd: 0, tv: 0, tc: 0 };
+    map[r.vendedor].qtd++;
+    map[r.vendedor].tv += (r.totalVenda ?? 0);
+    map[r.vendedor].tc += r.valorComissao;
+  });
+  const resumoData = Object.entries(map)
+    .sort((a,b) => b[1].tc - a[1].tc)
+    .map(([n,v]) => {
+      const canc = totalCancelamentosPorVendedor(n, fI, fF);
+      return [n, v.qtd, 'R$ '+fmt(v.tv), 'R$ '+fmt(v.tc), 'R$ '+fmt(canc), 'R$ '+fmt(v.tc-canc)];
+    });
+
+  if (resumoData.length) {
+    doc.setTextColor(...cor);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Resumo por Vendedor', 14, y);
+    y += 4;
+
+    doc.autoTable({
+      startY: y,
+      head: [['Vendedor', 'Qtd', 'Total Vendido', 'Total Comissão', 'Notas Canceladas', 'Comissão Líquida']],
+      body: resumoData,
+      theme: 'striped',
+      headStyles: { fillColor: cor, textColor: 255, fontStyle: 'bold', fontSize: 9 },
+      bodyStyles: { fontSize: 9, textColor: [40, 40, 60] },
+      columnStyles: {
+        0: { cellWidth: 60 },
+        1: { halign: 'center' },
+        2: { halign: 'right' },
+        3: { halign: 'right', textColor: corV, fontStyle: 'bold' },
+      },
+      margin: { left: 14, right: 14 },
+    });
+    y = doc.lastAutoTable.finalY + 10;
+  }
+
+  // ── tabela 2: detalhamento ──────────────────────────────────
+  if (rows.length) {
+    if (y > 170) { doc.addPage(); y = 14; }
+    doc.setTextColor(...cor);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Detalhamento', 14, y);
+    y += 4;
+
+    doc.autoTable({
+      startY: y,
+      head: [['Data','Vendedor','Produto','Peso (kg)','Preço Prat.','Total Venda','Com. %','Valor Com.']],
+      body: rows.map(r => [
+        fmtDate(r.data),
+        r.vendedor,
+        r.produto,
+        fmt3(r.peso ?? 0) + ' kg',
+        'R$ ' + fmt(r.preco),
+        'R$ ' + fmt(r.totalVenda ?? 0),
+        fmt(r.com) + '%',
+        'R$ ' + fmt(r.valorComissao),
+      ]),
+      theme: 'striped',
+      headStyles: { fillColor: cor, textColor: 255, fontStyle: 'bold', fontSize: 8 },
+      bodyStyles: { fontSize: 8, textColor: [40, 40, 60] },
+      columnStyles: {
+        0: { cellWidth: 22 },
+        3: { halign: 'right' },
+        4: { halign: 'right' },
+        5: { halign: 'right' },
+        6: { halign: 'center' },
+        7: { halign: 'right', textColor: corV, fontStyle: 'bold' },
+      },
+      margin: { left: 14, right: 14 },
+    });
+  }
+
+  // ── tabela 3: notas canceladas ──────────────────────────────
+  let rowsCanc = db.cancelamentos;
+  if (fV) rowsCanc = rowsCanc.filter(x => x.vendedor.toLowerCase().includes(fV));
+  if (fP) rowsCanc = rowsCanc.filter(x => x.produto === fP);
+  if (fI) rowsCanc = rowsCanc.filter(x => x.data >= fI);
+  if (fF) rowsCanc = rowsCanc.filter(x => x.data <= fF);
+  rowsCanc = [...rowsCanc].sort((a,b) => b.data.localeCompare(a.data));
+
+  if (rowsCanc.length) {
+    y = doc.lastAutoTable ? doc.lastAutoTable.finalY + 10 : y;
+    if (y > 170) { doc.addPage(); y = 14; }
+    doc.setTextColor(220, 38, 38);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Notas Canceladas', 14, y);
+    y += 4;
+
+    doc.autoTable({
+      startY: y,
+      head: [['Data','Vendedor','Produto / Marca','Tipo','Valor','Observação']],
+      body: rowsCanc.map(r => [
+        fmtDate(r.data), r.vendedor, r.produto, r.tipo||'—',
+        'R$ '+fmt(r.valor), r.obs||'—',
+      ]),
+      theme: 'striped',
+      headStyles: { fillColor: [220,38,38], textColor: 255, fontStyle: 'bold', fontSize: 9 },
+      bodyStyles: { fontSize: 9, textColor: [40, 40, 60] },
+      columnStyles: {
+        4: { halign: 'right', textColor: [220,38,38], fontStyle: 'bold' },
+      },
+      foot: [['','','','','R$ '+fmt(rowsCanc.reduce((s,r)=>s+r.valor,0)),'']],
+      footStyles: { fillColor: [254,226,226], textColor: [220,38,38], fontStyle: 'bold', fontSize: 9 },
+      margin: { left: 14, right: 14 },
+    });
+  }
+
+  // ── rodapé em todas as páginas ──────────────────────────────
+  const totalPags = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= totalPags; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setTextColor(160, 160, 180);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Página ${i} de ${totalPags}`, W - 14, doc.internal.pageSize.getHeight() - 6, { align: 'right' });
+    doc.text('Vortek — Sistema de Comissão', 14, doc.internal.pageSize.getHeight() - 6);
+  }
+
+  doc.save('relatorio_comissao_' + today() + '.pdf');
+  toast('PDF gerado com sucesso');
+}
+</script>
+<script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://unpkg.com/jspdf-autotable@3.5.31/dist/jspdf.plugin.autotable.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script>
+// ============================================================
+// FIREBASE INIT + LISTENERS EM TEMPO REAL
+// ============================================================
+firebase.initializeApp(FIREBASE_CONFIG);
+fdb = firebase.firestore();
+
+function reRenderAtivo() {
+  const pg = document.querySelector('.page.active');
+  if (!pg) return;
+  const id = pg.id;
+  if (id === 'page-cadastro')      renderCadastros();
+  if (id === 'page-vendas')        { preencherSelectProdutos(); preencherSelectMarca(); renderVendas(); }
+  if (id === 'page-relatorio')     { preencherSelectProdutos(); renderRelatorio(); }
+  if (id === 'page-cancelamentos') { renderSelectCancProduto(); renderCancelamentos(); }
+}
+
+const _prontos = { cadastros: false, vendas: false, cancelamentos: false };
+function _marcarPronto(col) {
+  _prontos[col] = true;
+  if (_prontos.cadastros && _prontos.vendas && _prontos.cancelamentos) {
+    const ov = document.getElementById('loading-overlay');
+    if (ov) ov.style.display = 'none';
+  }
+}
+
+fdb.collection('cadastros').onSnapshot(snap => {
+  db.cadastros = snap.docs.map(d => d.data());
+  _marcarPronto('cadastros');
+  reRenderAtivo();
+}, err => {
+  console.error('Erro ao carregar cadastros:', err);
+  _marcarPronto('cadastros');
+});
+
+fdb.collection('vendas').onSnapshot(snap => {
+  db.vendas = snap.docs.map(d => d.data());
+  _marcarPronto('vendas');
+  reRenderAtivo();
+}, err => {
+  console.error('Erro ao carregar vendas:', err);
+  _marcarPronto('vendas');
+});
+
+fdb.collection('cancelamentos').onSnapshot(snap => {
+  db.cancelamentos = snap.docs.map(d => d.data());
+  _marcarPronto('cancelamentos');
+  reRenderAtivo();
+}, err => {
+  console.error('Erro ao carregar cancelamentos:', err);
+  _marcarPronto('cancelamentos');
+});
+</script>
+</body>
+</html>

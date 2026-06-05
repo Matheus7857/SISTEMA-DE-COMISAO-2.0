@@ -1,0 +1,4 @@
+Nome do Produto;Código do Produto;Pares Preço:Comissão (separados por |);Período Início (DD/MM/AAAA);Período Fim (DD/MM/AAAA)
+Produto Exemplo;SKU-001;150,00:0,5|160,00:1,0|170,00:1,5|180,00:2,0;01/01/2025;30/06/2025
+Produto Exemplo;SKU-001;155,00:0,5|165,00:1,0|175,00:1,5|185,00:2,0;01/07/2025;
+Outro Produto;;200,00:5,0;01/01/2025;
