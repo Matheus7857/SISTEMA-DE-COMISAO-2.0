@@ -1811,7 +1811,7 @@ function downloadCSV(filename, rows) {
 function showResult(id, type, msg) {
   const el = document.getElementById(id);
   el.className = 'import-result ' + type;
-  el.textContent = msg;
+  el.innerHTML = msg;
 }
 
 // ============================================================
@@ -1845,6 +1845,7 @@ function importarCadastro(input) {
       let ok = 0, erros = [], novos = [];
       for (let i = 1; i < rows.length; i++) {
         const r    = rows[i];
+        if (r.every(c => !c.trim())) continue; // linha vazia
         const nome = (r[0]||'').trim(), cod = (r[1]||'').trim();
         // pares: "150,00:0,5|160,00:1,0"
         const paresStr = (r[2]||'').split('|').map(s => {
@@ -1856,14 +1857,14 @@ function importarCadastro(input) {
         if (!paresStr.length){ erros.push(`Linha ${i+1}: pares inválidos "${r[2]}"`); continue; }
         if (!ini)            { erros.push(`Linha ${i+1}: data início inválida "${r[3]}"`); continue; }
         if (fim === null)    { erros.push(`Linha ${i+1}: data fim inválida "${r[4]}"`); continue; }
-        const item = { id: genId(), nome, codigo: cod, pares: paresStr.sort((a,b)=>a.preco-b.preco), inicio: ini, fim: fim||'' };
+        const item = { id: genId(), nome, marca: 'Produto', codigo: cod, pares: paresStr.sort((a,b)=>a.preco-b.preco), inicio: ini, fim: fim||'' };
         db.cadastros.push(item);
         novos.push(item);
         ok++;
       }
       fsBatch('cadastros', novos); renderCadastros();
       let msg = `${ok} cadastro(s) importado(s).`;
-      if (erros.length) msg += ` ${erros.length} ignorado(s): ${erros.slice(0,2).join(' | ')}`;
+      if (erros.length) msg += `<br><span style="color:#ef4444">Ignorados (${erros.length}):<br>${erros.join('<br>')}</span>`;
       showResult('result-cadastro', ok===0?'err':'ok', msg);
       if (ok>0) toast(`${ok} cadastro(s) importado(s)`);
     } catch(ex) { showResult('result-cadastro','err','Erro: '+ex.message); }
@@ -1908,10 +1909,11 @@ function importarVendas(input) {
       let ok = 0, erros = [], novos = [];
       for (let i = 1; i < rows.length; i++) {
         const r        = rows[i];
+        if (r.every(c => !c.trim())) continue; // linha vazia
         const vendedor   = (r[0]||'').trim();
         const produto    = (r[1]||'').trim();
         const peso       = parseNum(r[2]);
-        const totalVenda = parseNum(r[3]);   // coluna: Valor Total
+        const totalVenda = parseNum(r[3]);
         const dataStr    = parseDate(r[4]);
 
         if (!vendedor)                    { erros.push(`Linha ${i+1}: vendedor em branco`); continue; }
@@ -1920,25 +1922,29 @@ function importarVendas(input) {
         if (isNaN(totalVenda) || totalVenda<=0) { erros.push(`Linha ${i+1}: valor total inválido "${r[3]}"`); continue; }
         if (!dataStr)                     { erros.push(`Linha ${i+1}: data inválida "${r[4]}"`); continue; }
 
-        const cad = getCadastroNaData(produto, dataStr);
-        if (!cad) { erros.push(`Linha ${i+1}: cadastro não encontrado para "${produto}" em ${r[4]}`); continue; }
+        // busca case-insensitive para evitar falha por maiúscula/minúscula
+        const cad = db.cadastros.find(c =>
+          c.nome.trim().toLowerCase() === produto.toLowerCase() &&
+          c.inicio <= dataStr && (!c.fim || c.fim >= dataStr)
+        );
+        if (!cad) {
+          const nomes = [...new Set(db.cadastros.map(c=>c.nome))].join(', ');
+          erros.push(`Linha ${i+1}: "${produto}" não encontrado em ${r[4]} — cadastros disponíveis: ${nomes||'nenhum'}`);
+          continue;
+        }
 
-        // calcula valor praticado e identifica a comissão pelo par
-        const precoPorKg = totalVenda / peso;
-        const pares      = getPares(cad);
-        const par        = encontrarPar(pares, precoPorKg);
-
-        const preco         = precoPorKg;
+        const precoPorKg    = totalVenda / peso;
+        const par           = encontrarPar(getPares(cad), precoPorKg);
         const com           = par.comissao;
         const valorComissao = totalVenda * (com / 100);
-        const item = { id: genId(), produto, vendedor, data: dataStr, peso, preco, com, totalVenda, valorComissao };
+        const item = { id: genId(), produto: cad.nome, vendedor, data: dataStr, peso, preco: precoPorKg, com, totalVenda, valorComissao };
         db.vendas.push(item);
         novos.push(item);
         ok++;
       }
       fsBatch('vendas', novos); renderVendas();
       let msg = `${ok} venda(s) importada(s).`;
-      if (erros.length) msg += ` ${erros.length} ignorada(s): ${erros.slice(0,2).join(' | ')}`;
+      if (erros.length) msg += `<br><span style="color:#ef4444">Ignoradas (${erros.length}):<br>${erros.join('<br>')}</span>`;
       showResult('result-vendas', ok===0?'err':'ok', msg);
       if (ok>0) toast(`${ok} venda(s) importada(s)`);
     } catch(ex) { showResult('result-vendas','err','Erro: '+ex.message); }
