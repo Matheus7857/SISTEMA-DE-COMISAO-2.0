@@ -1842,7 +1842,7 @@ function importarCadastro(input) {
     try {
       const rows = parseCSV(e.target.result);
       if (rows.length < 2) { showResult('result-cadastro','err','Arquivo vazio ou sem dados.'); return; }
-      let ok = 0, erros = [];
+      let ok = 0, erros = [], novos = [];
       for (let i = 1; i < rows.length; i++) {
         const r    = rows[i];
         const nome = (r[0]||'').trim(), cod = (r[1]||'').trim();
@@ -1856,10 +1856,12 @@ function importarCadastro(input) {
         if (!paresStr.length){ erros.push(`Linha ${i+1}: pares inválidos "${r[2]}"`); continue; }
         if (!ini)            { erros.push(`Linha ${i+1}: data início inválida "${r[3]}"`); continue; }
         if (fim === null)    { erros.push(`Linha ${i+1}: data fim inválida "${r[4]}"`); continue; }
-        db.cadastros.push({ id: genId(), nome, codigo: cod, pares: paresStr.sort((a,b)=>a.preco-b.preco), inicio: ini, fim: fim||'' });
+        const item = { id: genId(), nome, codigo: cod, pares: paresStr.sort((a,b)=>a.preco-b.preco), inicio: ini, fim: fim||'' };
+        db.cadastros.push(item);
+        novos.push(item);
         ok++;
       }
-      save(); renderCadastros();
+      fsBatch('cadastros', novos); renderCadastros();
       let msg = `${ok} cadastro(s) importado(s).`;
       if (erros.length) msg += ` ${erros.length} ignorado(s): ${erros.slice(0,2).join(' | ')}`;
       showResult('result-cadastro', ok===0?'err':'ok', msg);
@@ -1903,7 +1905,7 @@ function importarVendas(input) {
     try {
       const rows = parseCSV(e.target.result);
       if (rows.length < 2) { showResult('result-vendas','err','Arquivo vazio ou sem dados.'); return; }
-      let ok = 0, erros = [];
+      let ok = 0, erros = [], novos = [];
       for (let i = 1; i < rows.length; i++) {
         const r        = rows[i];
         const vendedor   = (r[0]||'').trim();
@@ -1929,10 +1931,12 @@ function importarVendas(input) {
         const preco         = precoPorKg;
         const com           = par.comissao;
         const valorComissao = totalVenda * (com / 100);
-        db.vendas.push({ id: genId(), produto, vendedor, data: dataStr, peso, preco, com, totalVenda, valorComissao });
+        const item = { id: genId(), produto, vendedor, data: dataStr, peso, preco, com, totalVenda, valorComissao };
+        db.vendas.push(item);
+        novos.push(item);
         ok++;
       }
-      save(); renderVendas();
+      fsBatch('vendas', novos); renderVendas();
       let msg = `${ok} venda(s) importada(s).`;
       if (erros.length) msg += ` ${erros.length} ignorada(s): ${erros.slice(0,2).join(' | ')}`;
       showResult('result-vendas', ok===0?'err':'ok', msg);
