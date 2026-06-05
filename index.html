@@ -143,10 +143,49 @@
 
   .highlight-green { color: #059669; font-weight: 700; }
   .text-muted { color: #9ca3af; font-size: 12px; }
+
+  /* Login */
+  #login-overlay { position:fixed;inset:0;background:#1a1a2e;z-index:10000;display:flex;align-items:center;justify-content:center; }
+  .login-box { background:#fff;border-radius:18px;padding:40px 36px;width:100%;max-width:380px;box-shadow:0 24px 60px rgba(0,0,0,.4); }
+  .login-box h2 { font-size:22px;font-weight:800;color:#1a1a2e;margin-bottom:4px; }
+  .login-box p  { font-size:13px;color:#9ca3af;margin-bottom:28px; }
+  .login-box .form-group { margin-bottom:16px; }
+  .login-box label { font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px; }
+  .login-box input  { width:100%;margin-top:6px;padding:10px 14px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:15px;outline:none;transition:border .2s; }
+  .login-box input:focus { border-color:#7c83fd; }
+  #login-btn { width:100%;padding:12px;background:#7c83fd;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-top:8px;transition:background .2s; }
+  #login-btn:hover { background:#6366f1; }
+  #login-btn:disabled { background:#a5b4fc;cursor:not-allowed; }
+  #login-error { color:#ef4444;font-size:13px;margin-top:12px;min-height:18px; }
+
+  /* Logout no sidebar */
+  .sidebar-footer { margin-top:auto;padding:16px 12px;border-top:1px solid rgba(255,255,255,.08); }
+  .logout-btn { width:100%;padding:9px 14px;background:transparent;border:1px solid rgba(255,255,255,.2);border-radius:8px;color:rgba(255,255,255,.6);font-size:13px;cursor:pointer;text-align:left;transition:all .2s; }
+  .logout-btn:hover { background:rgba(255,255,255,.07);color:#fff; }
+  #sidebar-user { font-size:11px;color:rgba(255,255,255,.35);margin-bottom:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
 </style>
 </head>
 <body>
-<div class="layout">
+
+<!-- Tela de Login -->
+<div id="login-overlay">
+  <div class="login-box">
+    <h2>Vortek</h2>
+    <p>Sistema de Comissão — faça login para continuar</p>
+    <div class="form-group">
+      <label>E-mail</label>
+      <input type="email" id="login-email" placeholder="seu@email.com" autocomplete="username" />
+    </div>
+    <div class="form-group">
+      <label>Senha</label>
+      <input type="password" id="login-senha" placeholder="••••••••" autocomplete="current-password" />
+    </div>
+    <button id="login-btn" onclick="fazerLogin()">Entrar</button>
+    <div id="login-error"></div>
+  </div>
+</div>
+
+<div class="layout" id="app-layout" style="display:none;">
 
   <nav class="sidebar">
     <div class="sidebar-logo">
@@ -159,6 +198,10 @@
       <div class="nav-item" data-page="relatorio"><span class="nav-icon">📊</span> Relatório</div>
       <div class="nav-item" data-page="cancelamentos"><span class="nav-icon">🚫</span> Cancelamentos</div>
       <div class="nav-item" data-page="config"><span class="nav-icon">⚙️</span> Configurações</div>
+    </div>
+    <div class="sidebar-footer">
+      <div id="sidebar-user"></div>
+      <button class="logout-btn" onclick="fazerLogout()">Sair da conta</button>
     </div>
   </nav>
 
@@ -2158,13 +2201,17 @@ function gerarPDF() {
 <script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://unpkg.com/jspdf-autotable@3.5.31/dist/jspdf.plugin.autotable.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script>
 // ============================================================
-// FIREBASE INIT + LISTENERS EM TEMPO REAL
+// FIREBASE INIT + AUTH + LISTENERS EM TEMPO REAL
 // ============================================================
 firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
 fdb = firebase.firestore();
+
+let _unsubscribers = [];
 
 function reRenderAtivo() {
   const pg = document.querySelector('.page.active');
@@ -2176,40 +2223,94 @@ function reRenderAtivo() {
   if (id === 'page-cancelamentos') { renderSelectCancProduto(); renderCancelamentos(); }
 }
 
-const _prontos = { cadastros: false, vendas: false, cancelamentos: false };
-function _marcarPronto(col) {
-  _prontos[col] = true;
-  if (_prontos.cadastros && _prontos.vendas && _prontos.cancelamentos) {
-    const ov = document.getElementById('loading-overlay');
-    if (ov) ov.style.display = 'none';
+function iniciarListeners() {
+  const prontos = { cadastros: false, vendas: false, cancelamentos: false };
+  function marcarPronto(col) {
+    prontos[col] = true;
+    if (prontos.cadastros && prontos.vendas && prontos.cancelamentos) {
+      document.getElementById('loading-overlay').style.display = 'none';
+    }
+  }
+
+  _unsubscribers.push(
+    fdb.collection('cadastros').onSnapshot(snap => {
+      db.cadastros = snap.docs.map(d => d.data());
+      marcarPronto('cadastros');
+      reRenderAtivo();
+    }, err => { console.error(err); marcarPronto('cadastros'); }),
+
+    fdb.collection('vendas').onSnapshot(snap => {
+      db.vendas = snap.docs.map(d => d.data());
+      marcarPronto('vendas');
+      reRenderAtivo();
+    }, err => { console.error(err); marcarPronto('vendas'); }),
+
+    fdb.collection('cancelamentos').onSnapshot(snap => {
+      db.cancelamentos = snap.docs.map(d => d.data());
+      marcarPronto('cancelamentos');
+      reRenderAtivo();
+    }, err => { console.error(err); marcarPronto('cancelamentos'); })
+  );
+}
+
+function pararListeners() {
+  _unsubscribers.forEach(u => u());
+  _unsubscribers = [];
+  db = { cadastros: [], vendas: [], cancelamentos: [] };
+}
+
+// Observa estado de autenticação
+auth.onAuthStateChanged(user => {
+  if (user) {
+    // Logado — mostra o app
+    document.getElementById('login-overlay').style.display = 'none';
+    document.getElementById('app-layout').style.display = 'flex';
+    document.getElementById('sidebar-user').textContent = user.email;
+    iniciarListeners();
+  } else {
+    // Deslogado — mostra tela de login
+    pararListeners();
+    document.getElementById('app-layout').style.display = 'none';
+    document.getElementById('login-overlay').style.display = 'flex';
+    document.getElementById('loading-overlay').style.display = 'none';
+  }
+});
+
+// Login
+async function fazerLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const senha  = document.getElementById('login-senha').value;
+  const erro   = document.getElementById('login-error');
+  const btn    = document.getElementById('login-btn');
+  if (!email || !senha) { erro.textContent = 'Preencha e-mail e senha.'; return; }
+  btn.disabled = true;
+  btn.textContent = 'Entrando…';
+  erro.textContent = '';
+  try {
+    await auth.signInWithEmailAndPassword(email, senha);
+  } catch(e) {
+    const msgs = {
+      'auth/user-not-found':   'Usuário não encontrado.',
+      'auth/wrong-password':   'Senha incorreta.',
+      'auth/invalid-email':    'E-mail inválido.',
+      'auth/invalid-credential': 'E-mail ou senha incorretos.',
+      'auth/too-many-requests':'Muitas tentativas. Tente mais tarde.',
+    };
+    erro.textContent = msgs[e.code] || 'Erro ao entrar: ' + e.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Entrar';
   }
 }
 
-fdb.collection('cadastros').onSnapshot(snap => {
-  db.cadastros = snap.docs.map(d => d.data());
-  _marcarPronto('cadastros');
-  reRenderAtivo();
-}, err => {
-  console.error('Erro ao carregar cadastros:', err);
-  _marcarPronto('cadastros');
-});
+// Logout
+async function fazerLogout() {
+  await auth.signOut();
+}
 
-fdb.collection('vendas').onSnapshot(snap => {
-  db.vendas = snap.docs.map(d => d.data());
-  _marcarPronto('vendas');
-  reRenderAtivo();
-}, err => {
-  console.error('Erro ao carregar vendas:', err);
-  _marcarPronto('vendas');
-});
-
-fdb.collection('cancelamentos').onSnapshot(snap => {
-  db.cancelamentos = snap.docs.map(d => d.data());
-  _marcarPronto('cancelamentos');
-  reRenderAtivo();
-}, err => {
-  console.error('Erro ao carregar cancelamentos:', err);
-  _marcarPronto('cancelamentos');
+// Enter no campo de senha faz login
+document.getElementById('login-senha').addEventListener('keydown', e => {
+  if (e.key === 'Enter') fazerLogin();
 });
 </script>
 </body>
