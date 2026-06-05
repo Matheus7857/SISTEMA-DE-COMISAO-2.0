@@ -376,7 +376,8 @@
         </div>
         <div id="result-vendas-marca" class="import-result"></div>
         <p style="font-size:12px;color:#6b7280;margin-top:10px;">
-          Colunas: <strong>Vendedor | Produto/Marca | Período Início (DD/MM/AAAA) | Período Fim (DD/MM/AAAA) | Valor Total (R$) | Comissão (%)</strong>.
+          Colunas: <strong>Vendedor | Produto/Marca | Período Início (DD/MM/AAAA) | Período Fim (DD/MM/AAAA) | Valor Total (R$)</strong>.
+          A comissão é buscada automaticamente do cadastro.
         </p>
       </div>
 
@@ -2020,8 +2021,8 @@ function importarVendas(input) {
 // ============================================================
 function downloadModeloVendasMarca() {
   downloadCSV('modelo_vendas_marca.csv', [
-    ['Vendedor','Produto/Marca','Período Início (DD/MM/AAAA)','Período Fim (DD/MM/AAAA)','Valor Total (R$)','Comissão (%)'],
-    ['João Silva','MARCA EXEMPLO','01/05/2025','31/05/2025','15000,00','1,5'],
+    ['Vendedor','Produto/Marca','Período Início (DD/MM/AAAA)','Período Fim (DD/MM/AAAA)','Valor Total (R$)'],
+    ['João Silva','MARCA EXEMPLO','01/05/2025','31/05/2025','15000,00'],
   ]);
   toast('Modelo de vendas por marca baixado');
 }
@@ -2042,15 +2043,13 @@ function importarVendasMarca(input) {
         const inicio     = parseDate(r[2]);
         const fim        = parseDate(r[3]);
         const totalVenda = parseNum(r[4]);
-        const com        = parseNum(r[5]);
 
-        if (!vendedor)                      { erros.push(`Linha ${i+1}: vendedor em branco`); continue; }
-        if (!produto)                       { erros.push(`Linha ${i+1}: produto em branco`); continue; }
-        if (!inicio)                        { erros.push(`Linha ${i+1}: data início inválida "${r[2]}"`); continue; }
-        if (!fim)                           { erros.push(`Linha ${i+1}: data fim inválida "${r[3]}"`); continue; }
-        if (fim < inicio)                   { erros.push(`Linha ${i+1}: data fim antes do início`); continue; }
+        if (!vendedor)                       { erros.push(`Linha ${i+1}: vendedor em branco`); continue; }
+        if (!produto)                        { erros.push(`Linha ${i+1}: produto em branco`); continue; }
+        if (!inicio)                         { erros.push(`Linha ${i+1}: data início inválida "${r[2]}"`); continue; }
+        if (!fim)                            { erros.push(`Linha ${i+1}: data fim inválida "${r[3]}"`); continue; }
+        if (fim < inicio)                    { erros.push(`Linha ${i+1}: data fim antes do início`); continue; }
         if (isNaN(totalVenda)||totalVenda<=0){ erros.push(`Linha ${i+1}: valor total inválido "${r[4]}"`); continue; }
-        if (isNaN(com)||com<=0||com>100)    { erros.push(`Linha ${i+1}: comissão inválida "${r[5]}" (use valor entre 0 e 100)`); continue; }
 
         const cad = db.cadastros.find(c =>
           c.nome.trim().toLowerCase() === produto.toLowerCase() &&
@@ -2062,6 +2061,10 @@ function importarVendasMarca(input) {
           continue;
         }
 
+        const pares = getPares(cad);
+        if (!pares.length) { erros.push(`Linha ${i+1}: cadastro "${cad.nome}" sem comissão definida`); continue; }
+        // usa o maior par disponível (último após ordenação)
+        const com           = pares[pares.length - 1].comissao;
         const valorComissao = totalVenda * (com / 100);
         const item = { id: genId(), produto: cad.nome, vendedor, data: inicio, dataFim: fim, peso: null, preco: null, com, totalVenda, valorComissao, tipo: 'marca' };
         db.vendas.push(item);
