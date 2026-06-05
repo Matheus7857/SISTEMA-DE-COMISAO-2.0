@@ -335,7 +335,7 @@
       </div>
 
       <div class="io-card">
-        <div class="io-card-title">📥 Importar / Exportar — Vendas</div>
+        <div class="io-card-title">📥 Importar / Exportar — Vendas por Peso</div>
         <div class="io-row">
           <div class="io-section">
             <span class="io-section-label">Modelos</span>
@@ -355,6 +355,28 @@
         <p style="font-size:12px;color:#6b7280;margin-top:10px;">
           Colunas: <strong>Vendedor | Produto | Peso (kg) | Valor Total (R$) | Dia da Venda (DD/MM/AAAA)</strong>.
           A comissão é identificada automaticamente pelo valor praticado calculado (Total ÷ Peso).
+        </p>
+      </div>
+
+      <div class="io-card">
+        <div class="io-card-title">📥 Importar / Exportar — Vendas por Marca</div>
+        <div class="io-row">
+          <div class="io-section">
+            <span class="io-section-label">Modelos</span>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn btn-outline" onclick="downloadModeloVendasMarca()">⬇ Baixar Modelo Marca</button>
+            </div>
+          </div>
+          <div class="io-divider"></div>
+          <div class="io-section">
+            <span class="io-section-label">Importar</span>
+            <label class="file-label" for="file-vendas-marca">📂 Escolher arquivo .csv</label>
+            <input type="file" id="file-vendas-marca" accept=".csv,.txt" onchange="importarVendasMarca(this)" />
+          </div>
+        </div>
+        <div id="result-vendas-marca" class="import-result"></div>
+        <p style="font-size:12px;color:#6b7280;margin-top:10px;">
+          Colunas: <strong>Vendedor | Produto/Marca | Período Início (DD/MM/AAAA) | Período Fim (DD/MM/AAAA) | Valor Total (R$) | Comissão (%)</strong>.
         </p>
       </div>
 
@@ -1988,6 +2010,70 @@ function importarVendas(input) {
       showResult('result-vendas', ok===0?'err':'ok', msg);
       if (ok>0) toast(`${ok} venda(s) importada(s)`);
     } catch(ex) { showResult('result-vendas','err','Erro: '+ex.message); }
+    input.value = '';
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+// ============================================================
+// IMPORT / EXPORT — VENDAS MARCA
+// ============================================================
+function downloadModeloVendasMarca() {
+  downloadCSV('modelo_vendas_marca.csv', [
+    ['Vendedor','Produto/Marca','Período Início (DD/MM/AAAA)','Período Fim (DD/MM/AAAA)','Valor Total (R$)','Comissão (%)'],
+    ['João Silva','MARCA EXEMPLO','01/05/2025','31/05/2025','15000,00','1,5'],
+  ]);
+  toast('Modelo de vendas por marca baixado');
+}
+
+function importarVendasMarca(input) {
+  const file = input.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const rows = parseCSV(e.target.result);
+      if (rows.length < 2) { showResult('result-vendas-marca','err','Arquivo vazio ou sem dados.'); return; }
+      let ok = 0, erros = [], novos = [];
+      for (let i = 1; i < rows.length; i++) {
+        const r = rows[i];
+        if (r.every(c => !c.trim())) continue;
+        const vendedor   = (r[0]||'').trim();
+        const produto    = (r[1]||'').trim();
+        const inicio     = parseDate(r[2]);
+        const fim        = parseDate(r[3]);
+        const totalVenda = parseNum(r[4]);
+        const com        = parseNum(r[5]);
+
+        if (!vendedor)                      { erros.push(`Linha ${i+1}: vendedor em branco`); continue; }
+        if (!produto)                       { erros.push(`Linha ${i+1}: produto em branco`); continue; }
+        if (!inicio)                        { erros.push(`Linha ${i+1}: data início inválida "${r[2]}"`); continue; }
+        if (!fim)                           { erros.push(`Linha ${i+1}: data fim inválida "${r[3]}"`); continue; }
+        if (fim < inicio)                   { erros.push(`Linha ${i+1}: data fim antes do início`); continue; }
+        if (isNaN(totalVenda)||totalVenda<=0){ erros.push(`Linha ${i+1}: valor total inválido "${r[4]}"`); continue; }
+        if (isNaN(com)||com<=0||com>100)    { erros.push(`Linha ${i+1}: comissão inválida "${r[5]}" (use valor entre 0 e 100)`); continue; }
+
+        const cad = db.cadastros.find(c =>
+          c.nome.trim().toLowerCase() === produto.toLowerCase() &&
+          c.inicio <= inicio && (!c.fim || c.fim >= inicio)
+        );
+        if (!cad) {
+          const nomes = [...new Set(db.cadastros.map(c=>c.nome))].join(', ');
+          erros.push(`Linha ${i+1}: "${produto}" não encontrado no cadastro — disponíveis: ${nomes||'nenhum'}`);
+          continue;
+        }
+
+        const valorComissao = totalVenda * (com / 100);
+        const item = { id: genId(), produto: cad.nome, vendedor, data: inicio, dataFim: fim, peso: null, preco: null, com, totalVenda, valorComissao, tipo: 'marca' };
+        db.vendas.push(item);
+        novos.push(item);
+        ok++;
+      }
+      fsBatch('vendas', novos); renderVendas();
+      let msg = `${ok} venda(s) por marca importada(s).`;
+      if (erros.length) msg += `<br><span style="color:#ef4444">Ignoradas (${erros.length}):<br>${erros.join('<br>')}</span>`;
+      showResult('result-vendas-marca', ok===0?'err':'ok', msg);
+      if (ok>0) toast(`${ok} venda(s) por marca importada(s)`);
+    } catch(ex) { showResult('result-vendas-marca','err','Erro: '+ex.message); }
     input.value = '';
   };
   reader.readAsText(file, 'UTF-8');
