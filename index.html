@@ -1510,13 +1510,16 @@ function addVendaMarca() {
 
   if (_vendaEditId) {
     const idx = db.vendas.findIndex(x => x.id === _vendaEditId);
-    if (idx !== -1) db.vendas[idx] = { ...db.vendas[idx], ...registro };
+    const item = { ...db.vendas[idx], ...registro };
+    if (idx !== -1) db.vendas[idx] = item;
+    fsSet('vendas', item);
     toast('Venda atualizada');
   } else {
-    db.vendas.push({ id: genId(), ...registro });
+    const item = { id: genId(), ...registro };
+    db.vendas.push(item);
+    fsSet('vendas', item);
     toast('Venda registrada');
   }
-  save();
 
   _limparFormMarca();
   renderVendas();
@@ -1648,14 +1651,17 @@ function addVenda() {
 
   if (_vendaEditId) {
     const idx = db.vendas.findIndex(x => x.id === _vendaEditId);
-    if (idx !== -1) db.vendas[idx] = { ...db.vendas[idx], ...registro };
+    const item = { ...db.vendas[idx], ...registro };
+    if (idx !== -1) db.vendas[idx] = item;
+    fsSet('vendas', item);
     toast('Venda atualizada');
   } else {
-    db.vendas.push({ id: genId(), ...registro });
+    const item = { id: genId(), ...registro };
+    db.vendas.push(item);
+    fsSet('vendas', item);
     toast('Venda registrada');
   }
 
-  save();
   _limparFormVenda();
   renderVendas();
 }
@@ -1663,7 +1669,7 @@ function addVenda() {
 function removeVenda(id) {
   confirm2('Excluir esta venda?', '', () => {
     db.vendas = db.vendas.filter(x => x.id !== id);
-    save(); renderVendas(); toast('Venda removida');
+    fsDel('vendas', id); renderVendas(); toast('Venda removida');
   });
 }
 
@@ -1982,8 +1988,9 @@ function addCancelamento() {
   if (!data)                  return toast('Informe a data', 'error');
   if (isNaN(valor)||valor<=0) return toast('Informe o valor da nota', 'error');
 
-  db.cancelamentos.push({ id: genId(), vendedor, tipo, produto, data, valor, obs });
-  save();
+  const item = { id: genId(), vendedor, tipo, produto, data, valor, obs };
+  db.cancelamentos.push(item);
+  fsSet('cancelamentos', item);
   ['canc-vendedor','canc-valor','canc-obs'].forEach(id => document.getElementById(id).value = '');
   renderCancelamentos();
   toast('Nota cancelada registrada');
@@ -1992,7 +1999,7 @@ function addCancelamento() {
 function removeCancelamento(id) {
   confirm2('Excluir este cancelamento?', '', () => {
     db.cancelamentos = db.cancelamentos.filter(x => x.id !== id);
-    save(); renderCancelamentos(); toast('Cancelamento removido');
+    fsDel('cancelamentos', id); renderCancelamentos(); toast('Cancelamento removido');
   });
 }
 
