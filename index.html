@@ -703,6 +703,13 @@
       </div>
 
       <div class="card" style="max-width:520px;margin-top:24px;">
+        <div class="card-title">Diagnóstico de Conexão</div>
+        <p style="font-size:14px;color:#6b7280;margin-bottom:16px;">Testa se o Firebase está conseguindo ler e gravar dados.</p>
+        <button class="btn btn-outline" onclick="testarConexao()">Testar conexão agora</button>
+        <div id="teste-info" style="margin-top:14px;font-size:13px;line-height:2;font-family:monospace;"></div>
+      </div>
+
+      <div class="card" style="max-width:520px;margin-top:24px;">
         <div class="card-title">Recuperar Dados do Navegador</div>
         <p style="font-size:14px;color:#6b7280;margin-bottom:20px;line-height:1.6;">
           Se você tinha dados salvos localmente no navegador antes da integração com o Firebase,
@@ -1256,6 +1263,54 @@ async function migrarDadosLocais() {
     btnMigrar.disabled = false;
     btnMigrar.textContent = 'Importar para o Firebase';
   }
+}
+
+async function testarConexao() {
+  const el = document.getElementById('teste-info');
+  const ok  = s => `<span style="color:#059669;">✓ ${s}</span><br>`;
+  const err = s => `<span style="color:#ef4444;">✕ ${s}</span><br>`;
+  const inf = s => `<span style="color:#6b7280;">${s}</span><br>`;
+  let html = inf('Iniciando diagnóstico…<br>');
+  el.innerHTML = html;
+
+  // 1. Firebase inicializado?
+  if (!fdb) { el.innerHTML += err('fdb não inicializado — Firebase não carregou.'); return; }
+  html += ok('Firebase inicializado');
+  el.innerHTML = html;
+
+  // 2. Usuário logado?
+  const user = auth.currentUser;
+  if (!user) { el.innerHTML += err('Nenhum usuário autenticado — faça login.'); return; }
+  html += ok('Usuário logado: ' + user.email);
+  el.innerHTML = html;
+
+  // 3. Teste de escrita
+  const docRef = fdb.collection('_teste').doc('ping');
+  try {
+    await docRef.set({ ts: Date.now(), uid: user.uid });
+    html += ok('Escrita no Firestore: OK');
+  } catch(e) {
+    html += err('Escrita falhou: ' + e.code + ' — ' + e.message);
+    el.innerHTML = html;
+    return;
+  }
+  el.innerHTML = html;
+
+  // 4. Teste de leitura
+  try {
+    const snap = await docRef.get();
+    if (snap.exists) html += ok('Leitura do Firestore: OK');
+    else             html += err('Documento gravado mas não encontrado na leitura.');
+  } catch(e) {
+    html += err('Leitura falhou: ' + e.code + ' — ' + e.message);
+    el.innerHTML = html;
+    return;
+  }
+
+  // 5. Limpa doc de teste
+  await docRef.delete().catch(() => {});
+  html += ok('Tudo funcionando — Firebase conectado com sucesso!');
+  el.innerHTML = html;
 }
 
 function diagnosticarLocalStorage() {
