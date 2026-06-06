@@ -588,7 +588,19 @@
           <h1>Relatório de Comissões</h1>
           <p>Visão consolidada por vendedor e período</p>
         </div>
-        <button class="btn btn-primary" onclick="gerarPDF()" style="margin-top:4px;">📄 Gerar PDF</button>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
+          <div style="display:flex;gap:6px;background:#f3f4f6;border-radius:8px;padding:4px;">
+            <label style="display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;transition:all .2s;" id="lbl-simples">
+              <input type="radio" name="pdf-modo" value="simples" checked onchange="atualizarModoPDF()" style="display:none;" />
+              Simplificado
+            </label>
+            <label style="display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;transition:all .2s;" id="lbl-detalhado">
+              <input type="radio" name="pdf-modo" value="detalhado" onchange="atualizarModoPDF()" style="display:none;" />
+              Detalhado
+            </label>
+          </div>
+          <button class="btn btn-primary" onclick="gerarPDF()">📄 Gerar PDF</button>
+        </div>
       </div>
       <div class="card">
         <div class="filter-bar">
@@ -2324,6 +2336,16 @@ carregarConfig();
 // ============================================================
 // GERAR PDF
 // ============================================================
+function atualizarModoPDF() {
+  const modo = document.querySelector('input[name="pdf-modo"]:checked')?.value || 'simples';
+  const ativo = { background:'#1a1a2e', color:'#fff', borderRadius:'6px' };
+  const inativo = { background:'transparent', color:'#6b7280' };
+  Object.assign(document.getElementById('lbl-simples').style,   modo==='simples'   ? ativo : inativo);
+  Object.assign(document.getElementById('lbl-detalhado').style, modo==='detalhado' ? ativo : inativo);
+}
+// aplica estilo inicial
+setTimeout(atualizarModoPDF, 0);
+
 function gerarPDF() {
   if (typeof window.jspdf === 'undefined') {
     toast('Biblioteca PDF ainda carregando, tente novamente em instantes', 'error');
@@ -2453,48 +2475,84 @@ function gerarPDF() {
     y = doc.lastAutoTable.finalY + 6;
   }
 
-  // ── tabela 2: detalhamento agrupado por vendedor/produto ─────
-  // Agrupa: vendedor → produto → { qtd, totalVenda, totalCom }
-  const mapVP = {};
-  rows.forEach(r => {
-    const k = r.vendedor;
-    if (!mapVP[k]) mapVP[k] = {};
-    const p = r.produto + (r.tipo==='marca' ? ' [marca]' : '');
-    if (!mapVP[k][p]) mapVP[k][p] = { qtd:0, tv:0, tc:0, com: r.com };
-    mapVP[k][p].qtd++; mapVP[k][p].tv += (r.totalVenda??0); mapVP[k][p].tc += r.valorComissao;
-  });
+  const modo = document.querySelector('input[name="pdf-modo"]:checked')?.value || 'simples';
 
-  const detalheBody = [];
-  Object.entries(mapVP).sort().forEach(([vend, prods]) => {
-    let subtv=0, subtc=0;
-    Object.entries(prods).forEach(([prod, d]) => {
-      detalheBody.push([vend, prod, d.qtd, fmt(d.com)+'%', 'R$ '+fmt(d.tv), 'R$ '+fmt(d.tc)]);
-      subtv += d.tv; subtc += d.tc;
+  // ── tabela 2: detalhamento ───────────────────────────────────
+  if (modo === 'simples') {
+    // Agrupa: vendedor → produto → totais
+    const mapVP = {};
+    rows.forEach(r => {
+      if (!mapVP[r.vendedor]) mapVP[r.vendedor] = {};
+      const p = r.produto + (r.tipo==='marca' ? ' [marca]' : '');
+      if (!mapVP[r.vendedor][p]) mapVP[r.vendedor][p] = { qtd:0, tv:0, tc:0, com:r.com };
+      mapVP[r.vendedor][p].qtd++; mapVP[r.vendedor][p].tv += (r.totalVenda??0); mapVP[r.vendedor][p].tc += r.valorComissao;
     });
-    detalheBody.push(['', { content:'Subtotal '+vend, styles:{fontStyle:'bold'} }, '', '', { content:'R$ '+fmt(subtv), styles:{fontStyle:'bold'} }, { content:'R$ '+fmt(subtc), styles:{fontStyle:'bold',textColor:corV} }]);
-  });
-
-  if (detalheBody.length) {
-    if (y > H - 40) { doc.addPage(); y = 14; }
-    doc.setTextColor(...cor); doc.setFontSize(8); doc.setFont('helvetica','bold');
-    doc.text('Detalhamento por Vendedor / Produto', M, y); y += 3;
-    doc.autoTable({
-      startY: y,
-      head: [['Vendedor','Produto','Qtd','Com. %','Total Venda','Total Com.']],
-      body: detalheBody,
-      theme: 'grid',
-      headStyles: { fillColor: cor, textColor: 255, fontStyle:'bold', fontSize: 7, cellPadding: 1.5 },
-      bodyStyles: { fontSize: 7, textColor: [30,30,50], cellPadding: 1.5 },
-      columnStyles: {
-        0: { fontStyle:'bold', cellWidth: 42 },
-        2: { halign:'center', cellWidth: 10 },
-        3: { halign:'center', cellWidth: 14 },
-        4: { halign:'right', cellWidth: 30 },
-        5: { halign:'right', cellWidth: 30, textColor: corV },
-      },
-      margin: { left: M, right: M },
+    const body = [];
+    Object.entries(mapVP).sort().forEach(([vend, prods]) => {
+      let subtv=0, subtc=0;
+      Object.entries(prods).forEach(([prod, d]) => {
+        body.push([vend, prod, d.qtd, fmt(d.com)+'%', 'R$ '+fmt(d.tv), 'R$ '+fmt(d.tc)]);
+        subtv += d.tv; subtc += d.tc;
+      });
+      body.push(['', { content:'Subtotal '+vend, styles:{fontStyle:'bold'} }, '', '',
+        { content:'R$ '+fmt(subtv), styles:{fontStyle:'bold'} },
+        { content:'R$ '+fmt(subtc), styles:{fontStyle:'bold', textColor:corV} }]);
     });
-    y = doc.lastAutoTable.finalY + 6;
+    if (body.length) {
+      if (y > H-40) { doc.addPage(); y=14; }
+      doc.setTextColor(...cor); doc.setFontSize(8); doc.setFont('helvetica','bold');
+      doc.text('Detalhamento por Vendedor / Produto', M, y); y += 3;
+      doc.autoTable({
+        startY: y,
+        head: [['Vendedor','Produto','Qtd','Com. %','Total Venda','Total Com.']],
+        body,
+        theme: 'grid',
+        headStyles: { fillColor: cor, textColor:255, fontStyle:'bold', fontSize:7, cellPadding:1.5 },
+        bodyStyles: { fontSize:7, textColor:[30,30,50], cellPadding:1.5 },
+        columnStyles: {
+          0: { fontStyle:'bold', cellWidth:42 },
+          2: { halign:'center', cellWidth:10 },
+          3: { halign:'center', cellWidth:14 },
+          4: { halign:'right', cellWidth:30 },
+          5: { halign:'right', cellWidth:30, textColor:corV },
+        },
+        margin: { left:M, right:M },
+      });
+      y = doc.lastAutoTable.finalY + 6;
+    }
+  } else {
+    // Detalhado: uma linha por venda
+    if (rows.length) {
+      if (y > H-40) { doc.addPage(); y=14; }
+      doc.setTextColor(...cor); doc.setFontSize(8); doc.setFont('helvetica','bold');
+      doc.text('Detalhamento Completo', M, y); y += 3;
+      doc.autoTable({
+        startY: y,
+        head: [['Data','Vendedor','Produto','Peso','Preço Prat.','Total Venda','Com. %','Valor Com.']],
+        body: rows.map(r => [
+          r.tipo==='marca' ? fmtDate(r.data)+' a '+fmtDate(r.dataFim||r.data) : fmtDate(r.data),
+          r.vendedor, r.produto,
+          r.tipo==='marca' ? '—' : fmt3(r.peso??0)+' kg',
+          r.tipo==='marca' ? '—' : 'R$ '+fmt(r.preco??0),
+          'R$ '+fmt(r.totalVenda??0),
+          fmt(r.com)+'%',
+          'R$ '+fmt(r.valorComissao),
+        ]),
+        theme: 'striped',
+        headStyles: { fillColor: cor, textColor:255, fontStyle:'bold', fontSize:7, cellPadding:1.2 },
+        bodyStyles: { fontSize:7, textColor:[30,30,50], cellPadding:1.2 },
+        columnStyles: {
+          0: { cellWidth:26 },
+          3: { halign:'right' },
+          4: { halign:'right' },
+          5: { halign:'right' },
+          6: { halign:'center' },
+          7: { halign:'right', textColor:corV, fontStyle:'bold' },
+        },
+        margin: { left:M, right:M },
+      });
+      y = doc.lastAutoTable.finalY + 6;
+    }
   }
 
   // ── tabela 3: notas canceladas ───────────────────────────────
