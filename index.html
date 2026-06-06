@@ -2352,143 +2352,152 @@ function gerarPDF() {
   const totLiq     = totCom - totDescCom;
 
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-  const W   = doc.internal.pageSize.getWidth();
-  const cor  = [44, 62, 80];      // azul escuro
-  const corV = [5, 150, 105];     // verde
+  const W    = doc.internal.pageSize.getWidth();
+  const H    = doc.internal.pageSize.getHeight();
+  const M    = 10; // margem
+  const cor  = [26, 26, 46];
+  const corV = [5, 150, 105];
+  const corR = [220, 38, 38];
+
+  const addRodape = () => {
+    const total = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= total; i++) {
+      doc.setPage(i);
+      doc.setFontSize(7); doc.setTextColor(180,180,200); doc.setFont('helvetica','normal');
+      doc.text(`Página ${i} de ${total}`, W - M, H - 4, { align: 'right' });
+      doc.text('Vortek — Sistema de Comissão', M, H - 4);
+    }
+  };
 
   // ── cabeçalho ──────────────────────────────────────────────
   doc.setFillColor(...cor);
-  doc.rect(0, 0, W, 22, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(16);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Vortek — Relatório de Comissões', 14, 14);
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
-  doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })}`, W - 14, 14, { align: 'right' });
+  doc.rect(0, 0, W, 16, 'F');
+  doc.setTextColor(255,255,255); doc.setFontSize(13); doc.setFont('helvetica','bold');
+  doc.text('Vortek — Relatório de Comissões', M, 11);
+  doc.setFontSize(7); doc.setFont('helvetica','normal');
+  const agora = new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  doc.text(`Gerado em: ${agora}`, W - M, 11, { align: 'right' });
 
-  let y = 30;
+  let y = 22;
 
-  // ── filtros aplicados ───────────────────────────────────────
+  // ── filtros ─────────────────────────────────────────────────
   const filtros = [];
   if (fV) filtros.push(`Vendedor: ${fV}`);
   if (fP) filtros.push(`Produto: ${fP}`);
   if (fI) filtros.push(`De: ${fmtDate(fI)}`);
   if (fF) filtros.push(`Até: ${fmtDate(fF)}`);
   if (filtros.length) {
-    doc.setTextColor(100, 100, 120);
-    doc.setFontSize(9);
-    doc.text('Filtros: ' + filtros.join('  |  '), 14, y);
-    y += 8;
+    doc.setTextColor(100,100,120); doc.setFontSize(7);
+    doc.text('Filtros: ' + filtros.join('  |  '), M, y); y += 6;
   }
 
-  // ── cards de totais ─────────────────────────────────────────
+  // ── cards de totais (2 linhas × 4 cards) ────────────────────
   const cards = [
-    { label: 'Total de Vendas',       valor: String(rows.length),       cor: [124,131,253] },
-    { label: 'Total Faturado',        valor: 'R$ ' + fmt(totVenda),     cor: [44, 62, 80]  },
-    { label: 'Notas Canceladas',      valor: '- R$ ' + fmt(totCanc),    cor: [220, 38, 38] },
-    { label: 'Faturamento Líquido',   valor: 'R$ ' + fmt(totFatLiq),    cor: [44, 62, 80]  },
-    { label: 'Total Comissão',        valor: 'R$ ' + fmt(totCom),       cor: [5, 150, 105] },
-    { label: 'Desc. Comissão',        valor: '- R$ ' + fmt(totDescCom), cor: [220, 38, 38] },
-    { label: 'Comissão Líquida',      valor: 'R$ ' + fmt(totLiq),       cor: [124,131,253] },
+    { label: 'Qtd. Vendas',        valor: String(rows.length),        cor: cor        },
+    { label: 'Total Faturado',      valor: 'R$ '+fmt(totVenda),        cor: cor        },
+    { label: 'Notas Canceladas',    valor: '- R$ '+fmt(totCanc),       cor: corR       },
+    { label: 'Faturamento Líquido', valor: 'R$ '+fmt(totFatLiq),       cor: [30,80,60] },
+    { label: 'Total Comissão',      valor: 'R$ '+fmt(totCom),          cor: corV       },
+    { label: 'Desc. Comissão',      valor: '- R$ '+fmt(totDescCom),    cor: corR       },
+    { label: 'Comissão Líquida',    valor: 'R$ '+fmt(totLiq),          cor: [80,60,200]},
   ];
-  const cw = (W - 28 - 18) / 7;
+  const cols4 = 4, cw4 = (W - 2*M - (cols4-1)*2) / cols4, ch = 12;
   cards.forEach((c, i) => {
-    const x = 14 + i * (cw + 3);
-    doc.setFillColor(245, 247, 250);
-    doc.roundedRect(x, y, cw, 18, 2, 2, 'F');
-    doc.setDrawColor(...c.cor);
-    doc.setLineWidth(0.8);
-    doc.line(x, y, x, y + 18);
-    doc.setTextColor(120, 120, 140);
-    doc.setFontSize(7);
-    doc.setFont('helvetica', 'bold');
-    doc.text(c.label.toUpperCase(), x + 4, y + 6);
-    doc.setTextColor(...c.cor);
-    doc.setFontSize(12);
-    doc.text(c.valor, x + 4, y + 14);
+    const col = i % cols4, row = Math.floor(i / cols4);
+    const x = M + col*(cw4+2), yy = y + row*(ch+2);
+    doc.setFillColor(245,247,250); doc.roundedRect(x, yy, cw4, ch, 1.5, 1.5, 'F');
+    doc.setDrawColor(...c.cor); doc.setLineWidth(0.6); doc.line(x, yy, x, yy+ch);
+    doc.setTextColor(130,130,150); doc.setFontSize(5.5); doc.setFont('helvetica','bold');
+    doc.text(c.label.toUpperCase(), x+3, yy+4.5);
+    doc.setTextColor(...c.cor); doc.setFontSize(9); doc.setFont('helvetica','bold');
+    doc.text(c.valor, x+3, yy+10);
   });
-  y += 26;
+  y += Math.ceil(cards.length/cols4)*(ch+2) + 4;
 
-  // ── tabela 1: resumo por vendedor ───────────────────────────
-  const map = {};
+  // ── tabela 1: resumo por vendedor ────────────────────────────
+  const mapV = {};
   rows.forEach(r => {
-    if (!map[r.vendedor]) map[r.vendedor] = { qtd: 0, tv: 0, tc: 0 };
-    map[r.vendedor].qtd++;
-    map[r.vendedor].tv += (r.totalVenda ?? 0);
-    map[r.vendedor].tc += r.valorComissao;
+    if (!mapV[r.vendedor]) mapV[r.vendedor] = { qtd:0, tv:0, tc:0 };
+    mapV[r.vendedor].qtd++; mapV[r.vendedor].tv += (r.totalVenda??0); mapV[r.vendedor].tc += r.valorComissao;
   });
-  const resumoData = Object.entries(map)
-    .sort((a,b) => b[1].tc - a[1].tc)
-    .map(([n,v]) => {
-      const canc    = totalCancelamentosPorVendedor(n, fI, fF);
-      const descCom = totalDescComCancelamentosPorVendedor(n, fI, fF);
-      return [n, v.qtd, 'R$ '+fmt(v.tv), 'R$ '+fmt(canc), 'R$ '+fmt(v.tv-canc), 'R$ '+fmt(v.tc), 'R$ '+fmt(descCom), 'R$ '+fmt(v.tc-descCom)];
-    });
+  const resumoData = Object.entries(mapV).sort((a,b)=>b[1].tc-a[1].tc).map(([n,v]) => {
+    const canc    = totalCancelamentosPorVendedor(n, fI, fF);
+    const descCom = totalDescComCancelamentosPorVendedor(n, fI, fF);
+    return [n, v.qtd, 'R$ '+fmt(v.tv), 'R$ '+fmt(canc), 'R$ '+fmt(v.tv-canc), 'R$ '+fmt(v.tc), 'R$ '+fmt(descCom), 'R$ '+fmt(v.tc-descCom)];
+  });
 
   if (resumoData.length) {
-    doc.setTextColor(...cor);
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Resumo por Vendedor', 14, y);
-    y += 4;
-
+    doc.setTextColor(...cor); doc.setFontSize(8); doc.setFont('helvetica','bold');
+    doc.text('Resumo por Vendedor', M, y); y += 3;
     doc.autoTable({
       startY: y,
-      head: [['Vendedor', 'Qtd', 'Total Faturado', 'Notas Canc.', 'Fat. Líquido', 'Total Comissão', 'Desc. Comissão', 'Comissão Líquida']],
+      head: [['Vendedor','Qtd','Faturado','Canc.','Fat. Líquido','Comissão','Desc. Com.','Com. Líquida']],
       body: resumoData,
       theme: 'striped',
-      headStyles: { fillColor: cor, textColor: 255, fontStyle: 'bold', fontSize: 9 },
-      bodyStyles: { fontSize: 9, textColor: [40, 40, 60] },
+      headStyles: { fillColor: cor, textColor: 255, fontStyle: 'bold', fontSize: 7, cellPadding: 1.5 },
+      bodyStyles: { fontSize: 7, textColor: [30,30,50], cellPadding: 1.5 },
       columnStyles: {
-        0: { cellWidth: 60 },
-        1: { halign: 'center' },
-        2: { halign: 'right' },
-        3: { halign: 'right', textColor: corV, fontStyle: 'bold' },
+        0: { fontStyle:'bold' },
+        1: { halign:'center' },
+        2: { halign:'right' },
+        3: { halign:'right', textColor: corR },
+        4: { halign:'right' },
+        5: { halign:'right', textColor: corV, fontStyle:'bold' },
+        6: { halign:'right', textColor: corR },
+        7: { halign:'right', textColor: [80,60,200], fontStyle:'bold' },
       },
-      margin: { left: 14, right: 14 },
+      foot: [['TOTAL', rows.length, 'R$ '+fmt(totVenda), 'R$ '+fmt(totCanc), 'R$ '+fmt(totFatLiq), 'R$ '+fmt(totCom), 'R$ '+fmt(totDescCom), 'R$ '+fmt(totLiq)]],
+      footStyles: { fillColor: [235,237,245], textColor: cor, fontStyle:'bold', fontSize: 7, cellPadding: 1.5 },
+      margin: { left: M, right: M },
     });
-    y = doc.lastAutoTable.finalY + 10;
+    y = doc.lastAutoTable.finalY + 6;
   }
 
-  // ── tabela 2: detalhamento ──────────────────────────────────
-  if (rows.length) {
-    if (y > 170) { doc.addPage(); y = 14; }
-    doc.setTextColor(...cor);
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Detalhamento', 14, y);
-    y += 4;
+  // ── tabela 2: detalhamento agrupado por vendedor/produto ─────
+  // Agrupa: vendedor → produto → { qtd, totalVenda, totalCom }
+  const mapVP = {};
+  rows.forEach(r => {
+    const k = r.vendedor;
+    if (!mapVP[k]) mapVP[k] = {};
+    const p = r.produto + (r.tipo==='marca' ? ' [marca]' : '');
+    if (!mapVP[k][p]) mapVP[k][p] = { qtd:0, tv:0, tc:0, com: r.com };
+    mapVP[k][p].qtd++; mapVP[k][p].tv += (r.totalVenda??0); mapVP[k][p].tc += r.valorComissao;
+  });
 
+  const detalheBody = [];
+  Object.entries(mapVP).sort().forEach(([vend, prods]) => {
+    let subtv=0, subtc=0;
+    Object.entries(prods).forEach(([prod, d]) => {
+      detalheBody.push([vend, prod, d.qtd, fmt(d.com)+'%', 'R$ '+fmt(d.tv), 'R$ '+fmt(d.tc)]);
+      subtv += d.tv; subtc += d.tc;
+    });
+    detalheBody.push(['', { content:'Subtotal '+vend, styles:{fontStyle:'bold'} }, '', '', { content:'R$ '+fmt(subtv), styles:{fontStyle:'bold'} }, { content:'R$ '+fmt(subtc), styles:{fontStyle:'bold',textColor:corV} }]);
+  });
+
+  if (detalheBody.length) {
+    if (y > H - 40) { doc.addPage(); y = 14; }
+    doc.setTextColor(...cor); doc.setFontSize(8); doc.setFont('helvetica','bold');
+    doc.text('Detalhamento por Vendedor / Produto', M, y); y += 3;
     doc.autoTable({
       startY: y,
-      head: [['Data','Vendedor','Produto','Peso (kg)','Preço Prat.','Total Venda','Com. %','Valor Com.']],
-      body: rows.map(r => [
-        fmtDate(r.data),
-        r.vendedor,
-        r.produto,
-        fmt3(r.peso ?? 0) + ' kg',
-        'R$ ' + fmt(r.preco),
-        'R$ ' + fmt(r.totalVenda ?? 0),
-        fmt(r.com) + '%',
-        'R$ ' + fmt(r.valorComissao),
-      ]),
-      theme: 'striped',
-      headStyles: { fillColor: cor, textColor: 255, fontStyle: 'bold', fontSize: 8 },
-      bodyStyles: { fontSize: 8, textColor: [40, 40, 60] },
+      head: [['Vendedor','Produto','Qtd','Com. %','Total Venda','Total Com.']],
+      body: detalheBody,
+      theme: 'grid',
+      headStyles: { fillColor: cor, textColor: 255, fontStyle:'bold', fontSize: 7, cellPadding: 1.5 },
+      bodyStyles: { fontSize: 7, textColor: [30,30,50], cellPadding: 1.5 },
       columnStyles: {
-        0: { cellWidth: 22 },
-        3: { halign: 'right' },
-        4: { halign: 'right' },
-        5: { halign: 'right' },
-        6: { halign: 'center' },
-        7: { halign: 'right', textColor: corV, fontStyle: 'bold' },
+        0: { fontStyle:'bold', cellWidth: 42 },
+        2: { halign:'center', cellWidth: 10 },
+        3: { halign:'center', cellWidth: 14 },
+        4: { halign:'right', cellWidth: 30 },
+        5: { halign:'right', cellWidth: 30, textColor: corV },
       },
-      margin: { left: 14, right: 14 },
+      margin: { left: M, right: M },
     });
+    y = doc.lastAutoTable.finalY + 6;
   }
 
-  // ── tabela 3: notas canceladas ──────────────────────────────
+  // ── tabela 3: notas canceladas ───────────────────────────────
   let rowsCanc = db.cancelamentos;
   if (fV) rowsCanc = rowsCanc.filter(x => x.vendedor.toLowerCase().includes(fV));
   if (fP) rowsCanc = rowsCanc.filter(x => x.produto === fP);
@@ -2497,44 +2506,32 @@ function gerarPDF() {
   rowsCanc = [...rowsCanc].sort((a,b) => b.data.localeCompare(a.data));
 
   if (rowsCanc.length) {
-    y = doc.lastAutoTable ? doc.lastAutoTable.finalY + 10 : y;
-    if (y > 170) { doc.addPage(); y = 14; }
-    doc.setTextColor(220, 38, 38);
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Notas Canceladas', 14, y);
-    y += 4;
-
+    if (y > H - 40) { doc.addPage(); y = 14; }
+    doc.setTextColor(...corR); doc.setFontSize(8); doc.setFont('helvetica','bold');
+    doc.text('Notas Canceladas', M, y); y += 3;
     doc.autoTable({
       startY: y,
-      head: [['Data','Vendedor','Produto / Marca','Tipo','Valor','Observação']],
+      head: [['Data','Vendedor','Produto / Marca','Tipo','Valor Canc.','Desc. Comissão','Observação']],
       body: rowsCanc.map(r => [
         fmtDate(r.data), r.vendedor, r.produto, r.tipo||'—',
-        'R$ '+fmt(r.valor), r.obs||'—',
+        'R$ '+fmt(r.valor),
+        'R$ '+fmt(r.valor*(getComPorCancelamento(r)/100)),
+        r.obs||'—',
       ]),
       theme: 'striped',
-      headStyles: { fillColor: [220,38,38], textColor: 255, fontStyle: 'bold', fontSize: 9 },
-      bodyStyles: { fontSize: 9, textColor: [40, 40, 60] },
+      headStyles: { fillColor: corR, textColor: 255, fontStyle:'bold', fontSize: 7, cellPadding: 1.5 },
+      bodyStyles: { fontSize: 7, textColor: [40,40,60], cellPadding: 1.5 },
       columnStyles: {
-        4: { halign: 'right', textColor: [220,38,38], fontStyle: 'bold' },
+        4: { halign:'right', textColor: corR, fontStyle:'bold' },
+        5: { halign:'right', textColor: corR },
       },
-      foot: [['','','','','R$ '+fmt(rowsCanc.reduce((s,r)=>s+r.valor,0)),'']],
-      footStyles: { fillColor: [254,226,226], textColor: [220,38,38], fontStyle: 'bold', fontSize: 9 },
-      margin: { left: 14, right: 14 },
+      foot: [['','','','','R$ '+fmt(rowsCanc.reduce((s,r)=>s+r.valor,0)), 'R$ '+fmt(rowsCanc.reduce((s,r)=>s+r.valor*(getComPorCancelamento(r)/100),0)),'']],
+      footStyles: { fillColor: [254,226,226], textColor: corR, fontStyle:'bold', fontSize: 7, cellPadding: 1.5 },
+      margin: { left: M, right: M },
     });
   }
 
-  // ── rodapé em todas as páginas ──────────────────────────────
-  const totalPags = doc.internal.getNumberOfPages();
-  for (let i = 1; i <= totalPags; i++) {
-    doc.setPage(i);
-    doc.setFontSize(8);
-    doc.setTextColor(160, 160, 180);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Página ${i} de ${totalPags}`, W - 14, doc.internal.pageSize.getHeight() - 6, { align: 'right' });
-    doc.text('Vortek — Sistema de Comissão', 14, doc.internal.pageSize.getHeight() - 6);
-  }
-
+  addRodape();
   doc.save('relatorio_comissao_' + today() + '.pdf');
   toast('PDF gerado com sucesso');
 }
