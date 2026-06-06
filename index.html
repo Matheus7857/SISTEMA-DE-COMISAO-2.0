@@ -1789,21 +1789,24 @@ function renderRelatorio() {
   if (fI) rows = rows.filter(x => x.data >= fI);
   if (fF) rows = rows.filter(x => x.data <= fF);
 
-  const totVenda  = rows.reduce((s,r) => s + (r.totalVenda ?? 0), 0);
-  const totCom    = rows.reduce((s,r) => s + r.valorComissao, 0);
-  const totCanc   = totalCancelamentos(fV, fM, fP, fI, fF);
-  const totLiq    = totCom - totCanc;
+  const totVenda   = rows.reduce((s,r) => s + (r.totalVenda ?? 0), 0);
+  const totCom     = rows.reduce((s,r) => s + r.valorComissao, 0);
+  const totCanc    = totalCancelamentos(fV, fM, fP, fI, fF);
+  const totDescCom = totalDescComCancelamentos(fV, fP, fI, fF);
+  const totFatLiq  = totVenda - totCanc;
+  const totLiq     = totCom - totDescCom;
 
   document.getElementById('rel-stats').innerHTML = `
     <div class="stat-card"><div class="stat-label">Total de Vendas</div><div class="stat-value">${rows.length}</div></div>
-    <div class="stat-card"><div class="stat-label">Total Vendido</div><div class="stat-value">R$ ${fmt(totVenda)}</div></div>
+    <div class="stat-card"><div class="stat-label">Total Faturado</div><div class="stat-value">R$ ${fmt(totVenda)}</div></div>
+    <div class="stat-card"><div class="stat-label">Notas Canceladas</div><div class="stat-value" style="color:#dc2626">- R$ ${fmt(totCanc)}</div></div>
+    <div class="stat-card"><div class="stat-label">Faturamento Líquido</div><div class="stat-value">R$ ${fmt(totFatLiq)}</div></div>
     <div class="stat-card"><div class="stat-label">Total Comissão</div><div class="stat-value green">R$ ${fmt(totCom)}</div></div>
-    <div class="stat-card"><div class="stat-label">Notas Canceladas</div><div class="stat-value" style="color:#dc2626">R$ ${fmt(totCanc)}</div></div>
+    <div class="stat-card"><div class="stat-label">Desc. Comissão (Canc.)</div><div class="stat-value" style="color:#dc2626">- R$ ${fmt(totDescCom)}</div></div>
     <div class="stat-card"><div class="stat-label">Comissão Líquida</div><div class="stat-value purple">R$ ${fmt(totLiq)}</div></div>`;
 
-  // cabeçalho da tabela de resumo atualizado
   document.getElementById('tbody-rel-vendedor').closest('table').querySelector('thead tr').innerHTML =
-    '<th>Vendedor</th><th>Qtd Vendas</th><th>Total Vendido</th><th>Total Comissão</th><th style="color:#dc2626">Notas Canceladas</th><th>Comissão Líquida</th>';
+    '<th>Vendedor</th><th>Qtd</th><th>Total Faturado</th><th>Notas Canc.</th><th>Fat. Líquido</th><th>Total Comissão</th><th style="color:#dc2626">Desc. Comissão</th><th>Comissão Líquida</th>';
 
   const map = {};
   rows.forEach(r => {
@@ -1814,17 +1817,21 @@ function renderRelatorio() {
   const ents = Object.entries(map).sort((a,b) => b[1].tc - a[1].tc);
   tbV.innerHTML = ents.length
     ? ents.map(([n,v]) => {
-        const canc = totalCancelamentosPorVendedor(n, fI, fF);
-        const liq  = v.tc - canc;
+        const canc    = totalCancelamentosPorVendedor(n, fI, fF);
+        const descCom = totalDescComCancelamentosPorVendedor(n, fI, fF);
+        const fatLiq  = v.tv - canc;
+        const liq     = v.tc - descCom;
         return `<tr>
           <td><strong>${n}</strong></td><td>${v.qtd}</td>
           <td>R$ ${fmt(v.tv)}</td>
-          <td class="highlight-green">R$ ${fmt(v.tc)}</td>
           <td style="color:#dc2626;font-weight:700;">R$ ${fmt(canc)}</td>
+          <td>R$ ${fmt(fatLiq)}</td>
+          <td class="highlight-green">R$ ${fmt(v.tc)}</td>
+          <td style="color:#dc2626;font-weight:700;">R$ ${fmt(descCom)}</td>
           <td style="color:#7c83fd;font-weight:700;">R$ ${fmt(liq)}</td>
         </tr>`;
       }).join('')
-    : '<tr><td colspan="6" class="empty">Nenhuma venda no período</td></tr>';
+    : '<tr><td colspan="8" class="empty">Nenhuma venda no período</td></tr>';
 
   const tbD = document.getElementById('tbody-rel-detalhe');
   const sorted = [...rows].sort((a,b) => b.data.localeCompare(a.data));
@@ -2168,7 +2175,7 @@ function renderCancelamentos() {
     </tr>`).join('');
 }
 
-// total de cancelamentos filtrado por vendedor e período
+// total de cancelamentos (valor bruto — desconta do faturamento)
 function totalCancelamentos(fV, fM, fP, fI, fF) {
   let rows = db.cancelamentos;
   if (fV) rows = rows.filter(x => x.vendedor.toLowerCase().includes(fV.toLowerCase()));
@@ -2183,6 +2190,35 @@ function totalCancelamentosPorVendedor(vendedor, fI, fF) {
   if (fI) rows = rows.filter(x => x.data >= fI);
   if (fF) rows = rows.filter(x => x.data <= fF);
   return rows.reduce((s,r) => s + r.valor, 0);
+}
+
+// busca a maior comissão do cadastro ativo na data do cancelamento
+function getComPorCancelamento(canc) {
+  const cad = db.cadastros.find(c =>
+    c.nome.trim().toLowerCase() === (canc.produto||'').trim().toLowerCase() &&
+    c.inicio <= canc.data && (!c.fim || c.fim >= canc.data)
+  );
+  if (!cad) return 0;
+  const pares = getPares(cad);
+  if (!pares.length) return 0;
+  return Math.max(...pares.map(p => p.comissao));
+}
+
+// desconto na COMISSÃO gerado pelos cancelamentos (valor × % do produto)
+function totalDescComCancelamentos(fV, fP, fI, fF) {
+  let rows = db.cancelamentos;
+  if (fV) rows = rows.filter(x => x.vendedor.toLowerCase().includes(fV.toLowerCase()));
+  if (fP) rows = rows.filter(x => x.produto === fP);
+  if (fI) rows = rows.filter(x => x.data >= fI);
+  if (fF) rows = rows.filter(x => x.data <= fF);
+  return rows.reduce((s, r) => s + r.valor * (getComPorCancelamento(r) / 100), 0);
+}
+
+function totalDescComCancelamentosPorVendedor(vendedor, fI, fF) {
+  let rows = db.cancelamentos.filter(x => x.vendedor === vendedor);
+  if (fI) rows = rows.filter(x => x.data >= fI);
+  if (fF) rows = rows.filter(x => x.data <= fF);
+  return rows.reduce((s, r) => s + r.valor * (getComPorCancelamento(r) / 100), 0);
 }
 
 // ============================================================
@@ -2215,10 +2251,12 @@ function gerarPDF() {
   if (fF) rows = rows.filter(x => x.data <= fF);
   rows = [...rows].sort((a,b) => b.data.localeCompare(a.data));
 
-  const totVenda = rows.reduce((s,r) => s + (r.totalVenda ?? 0), 0);
-  const totCom   = rows.reduce((s,r) => s + r.valorComissao, 0);
-  const totCanc  = totalCancelamentos(fV, '', fP, fI, fF);
-  const totLiq   = totCom - totCanc;
+  const totVenda   = rows.reduce((s,r) => s + (r.totalVenda ?? 0), 0);
+  const totCom     = rows.reduce((s,r) => s + r.valorComissao, 0);
+  const totCanc    = totalCancelamentos(fV, '', fP, fI, fF);
+  const totDescCom = totalDescComCancelamentos(fV, fP, fI, fF);
+  const totFatLiq  = totVenda - totCanc;
+  const totLiq     = totCom - totDescCom;
 
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   const W   = doc.internal.pageSize.getWidth();
@@ -2253,13 +2291,15 @@ function gerarPDF() {
 
   // ── cards de totais ─────────────────────────────────────────
   const cards = [
-    { label: 'Total de Vendas',      valor: String(rows.length),   cor: [124,131,253] },
-    { label: 'Total Vendido',        valor: 'R$ ' + fmt(totVenda), cor: [44, 62, 80]  },
-    { label: 'Total Comissão',       valor: 'R$ ' + fmt(totCom),   cor: [5, 150, 105] },
-    { label: 'Notas Canceladas',     valor: 'R$ ' + fmt(totCanc),  cor: [220, 38, 38] },
-    { label: 'Comissão Líquida',     valor: 'R$ ' + fmt(totLiq),   cor: [124,131,253] },
+    { label: 'Total de Vendas',       valor: String(rows.length),       cor: [124,131,253] },
+    { label: 'Total Faturado',        valor: 'R$ ' + fmt(totVenda),     cor: [44, 62, 80]  },
+    { label: 'Notas Canceladas',      valor: '- R$ ' + fmt(totCanc),    cor: [220, 38, 38] },
+    { label: 'Faturamento Líquido',   valor: 'R$ ' + fmt(totFatLiq),    cor: [44, 62, 80]  },
+    { label: 'Total Comissão',        valor: 'R$ ' + fmt(totCom),       cor: [5, 150, 105] },
+    { label: 'Desc. Comissão',        valor: '- R$ ' + fmt(totDescCom), cor: [220, 38, 38] },
+    { label: 'Comissão Líquida',      valor: 'R$ ' + fmt(totLiq),       cor: [124,131,253] },
   ];
-  const cw = (W - 28 - 12) / 5;
+  const cw = (W - 28 - 18) / 7;
   cards.forEach((c, i) => {
     const x = 14 + i * (cw + 3);
     doc.setFillColor(245, 247, 250);
@@ -2288,8 +2328,9 @@ function gerarPDF() {
   const resumoData = Object.entries(map)
     .sort((a,b) => b[1].tc - a[1].tc)
     .map(([n,v]) => {
-      const canc = totalCancelamentosPorVendedor(n, fI, fF);
-      return [n, v.qtd, 'R$ '+fmt(v.tv), 'R$ '+fmt(v.tc), 'R$ '+fmt(canc), 'R$ '+fmt(v.tc-canc)];
+      const canc    = totalCancelamentosPorVendedor(n, fI, fF);
+      const descCom = totalDescComCancelamentosPorVendedor(n, fI, fF);
+      return [n, v.qtd, 'R$ '+fmt(v.tv), 'R$ '+fmt(canc), 'R$ '+fmt(v.tv-canc), 'R$ '+fmt(v.tc), 'R$ '+fmt(descCom), 'R$ '+fmt(v.tc-descCom)];
     });
 
   if (resumoData.length) {
@@ -2301,7 +2342,7 @@ function gerarPDF() {
 
     doc.autoTable({
       startY: y,
-      head: [['Vendedor', 'Qtd', 'Total Vendido', 'Total Comissão', 'Notas Canceladas', 'Comissão Líquida']],
+      head: [['Vendedor', 'Qtd', 'Total Faturado', 'Notas Canc.', 'Fat. Líquido', 'Total Comissão', 'Desc. Comissão', 'Comissão Líquida']],
       body: resumoData,
       theme: 'striped',
       headStyles: { fillColor: cor, textColor: 255, fontStyle: 'bold', fontSize: 9 },
