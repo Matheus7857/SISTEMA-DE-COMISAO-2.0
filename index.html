@@ -2291,18 +2291,25 @@ function totalCancelamentos(fV, fM, fP, fI, fF) {
 }
 
 function totalCancelamentosPorVendedor(vendedor, fI, fF) {
-  let rows = db.cancelamentos.filter(x => x.vendedor === vendedor);
+  const v = vendedor.trim().toLowerCase();
+  let rows = db.cancelamentos.filter(x => x.vendedor.trim().toLowerCase() === v);
   if (fI) rows = rows.filter(x => x.data >= fI);
   if (fF) rows = rows.filter(x => x.data <= fF);
   return rows.reduce((s,r) => s + r.valor, 0);
 }
 
-// busca a maior comissão do cadastro ativo na data do cancelamento
+// busca a maior comissão do cadastro para o produto do cancelamento
+// 1º tenta na data exata; 2º qualquer cadastro com esse nome (fallback)
 function getComPorCancelamento(canc) {
-  const cad = db.cadastros.find(c =>
-    c.nome.trim().toLowerCase() === (canc.produto||'').trim().toLowerCase() &&
+  const nomeLow = (canc.produto||'').trim().toLowerCase();
+  let cad = db.cadastros.find(c =>
+    c.nome.trim().toLowerCase() === nomeLow &&
     c.inicio <= canc.data && (!c.fim || c.fim >= canc.data)
   );
+  // fallback: pega o cadastro mais recente com esse nome independente de data
+  if (!cad) cad = db.cadastros
+    .filter(c => c.nome.trim().toLowerCase() === nomeLow)
+    .sort((a,b) => b.inicio.localeCompare(a.inicio))[0];
   if (!cad) return 0;
   const pares = getPares(cad);
   if (!pares.length) return 0;
@@ -2313,14 +2320,15 @@ function getComPorCancelamento(canc) {
 function totalDescComCancelamentos(fV, fP, fI, fF) {
   let rows = db.cancelamentos;
   if (fV) rows = rows.filter(x => x.vendedor.toLowerCase().includes(fV.toLowerCase()));
-  if (fP) rows = rows.filter(x => x.produto === fP);
+  if (fP) rows = rows.filter(x => x.produto.trim().toLowerCase() === fP.trim().toLowerCase());
   if (fI) rows = rows.filter(x => x.data >= fI);
   if (fF) rows = rows.filter(x => x.data <= fF);
   return rows.reduce((s, r) => s + r.valor * (getComPorCancelamento(r) / 100), 0);
 }
 
 function totalDescComCancelamentosPorVendedor(vendedor, fI, fF) {
-  let rows = db.cancelamentos.filter(x => x.vendedor === vendedor);
+  const v = vendedor.trim().toLowerCase();
+  let rows = db.cancelamentos.filter(x => x.vendedor.trim().toLowerCase() === v);
   if (fI) rows = rows.filter(x => x.data >= fI);
   if (fF) rows = rows.filter(x => x.data <= fF);
   return rows.reduce((s, r) => s + r.valor * (getComPorCancelamento(r) / 100), 0);
